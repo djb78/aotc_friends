@@ -1,8 +1,15 @@
 import json
 from dotenv import load_dotenv
 from services.client import WCLClient
+from services.file_io import load_config
 
 def main():
+    print("loading config.json...")
+    config = load_config()
+    print(f"guild id: {config['guild_id']}")
+    print(f"zone id: {config['zone_id']}")
+    print("")
+
     load_dotenv()
     client = WCLClient()
 
