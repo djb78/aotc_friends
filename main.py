@@ -1,15 +1,20 @@
 import json
 from dotenv import load_dotenv
 from services.client import WCLClient
-from services.file_io import load_config
+from services.file_io import load_config, save_cache, load_cache
 
 def main():
+    # configuration test
     print("loading config.json...")
     config = load_config()
     print(f"guild id: {config['guild_id']}")
     print(f"zone id: {config['zone_id']}")
-    print("")
 
+    # JSON cache test
+    save_cache(config, "config", {'test': 1, 'two': '3'})
+    print(load_cache(config, "config"))
+
+    # client test
     load_dotenv()
     client = WCLClient()
 
