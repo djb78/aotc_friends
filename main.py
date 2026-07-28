@@ -1,6 +1,6 @@
 import json
 from dotenv import load_dotenv
-from client import WCLClient
+from services.client import WCLClient
 
 def main():
     load_dotenv()
