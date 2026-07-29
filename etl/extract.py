@@ -2,6 +2,8 @@ from services.file_io import save_cache, load_cache
 from services.client import WCLClient
 
 class Extractor:
+    CACHE_NAME_CODES = "codes_and_zoneranks" 
+
     def __init__(self, client, config: dict):
         self.client = client
         self.config = config
@@ -11,8 +13,7 @@ class Extractor:
         save_cache(self.config, cache_name, response)
 
     def extract_codes(self):
-        cache_name = "codes_and_zoneranks"
-        if load_cache(self.config, cache_name):
+        if load_cache(self.config, self.CACHE_NAME_CODES):
             return 
 
         query = "query { "
@@ -35,4 +36,4 @@ class Extractor:
         
         query += "}"	
                 
-        self.extract_query(query, cache_name)
+        self.extract_query(query, self.CACHE_NAME_CODES)
