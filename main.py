@@ -2,6 +2,7 @@ import json
 from dotenv import load_dotenv
 from services.client import WCLClient
 from services.file_io import load_config, save_cache, load_cache
+from etl.extract import Extractor
 
 def main():
     # configuration test
@@ -34,6 +35,9 @@ def main():
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(f"\nERROR: {e}")
+
+    e = Extractor(client, config)
+    e.extract_codes()
 
 if __name__ == "__main__":
     main()
