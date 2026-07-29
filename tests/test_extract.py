@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from etl.extract import Extractor
+from etl.constants import CACHE_NAME_CODES
 
 @pytest.fixture
 def mock_client():
@@ -24,7 +25,7 @@ def test_extract_codes_success(mock_load_cache, mock_save_cache, mock_client, va
     ex.extract_codes()
     mock_load_cache.assert_called_once_with(
         valid_config, 
-        Extractor.CACHE_NAME_CODES
+        CACHE_NAME_CODES
     )
     assert mock_client.query.called
 
@@ -35,20 +36,22 @@ def test_extract_codes_success(mock_load_cache, mock_save_cache, mock_client, va
 
     mock_save_cache.assert_called_once_with(
         valid_config,
-        Extractor.CACHE_NAME_CODES,
+        CACHE_NAME_CODES,
         mock_client.query.return_value
     )
 
 @patch("etl.extract.save_cache")
 @patch("etl.extract.load_cache")
 def test_extract_codes_cached(mock_load_cache, mock_save_cache, mock_client, valid_config):
+    """Test: if cache exists, return. no query, no save."""
     mock_load_cache.return_value = {'data': "cached"}
     ex = Extractor(mock_client, valid_config)
     ex.extract_codes()
 
     mock_load_cache.assert_called_once_with(
         valid_config,
-        Extractor.CACHE_NAME_CODES
+        CACHE_NAME_CODES
     )
 
     assert not mock_client.query.called
+    assert not mock_save_cache.called
