@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from services.client import WCLClient
 from services.file_io import load_config, save_cache, load_cache
 from etl.extract import Extractor
+from etl.transform import Transformer
 
 def main():
     # configuration test
@@ -38,6 +39,15 @@ def main():
 
     e = Extractor(client, config)
     e.extract_codes()
+
+    t = Transformer(config)
+    t.transform_codes_reports()
+
+    # transformer check
+    for report in t.reports:
+        print(report)
+
+    
 
 if __name__ == "__main__":
     main()
