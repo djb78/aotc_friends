@@ -1,4 +1,4 @@
-from etl.constants import CACHE_NAME_CODES
+from etl.constants import CODES_CACHE_NAME
 from services.file_io import save_cache, load_cache
 from services.client import WCLClient
 
@@ -12,7 +12,7 @@ class Extractor:
         save_cache(self.config, cache_name, response)
 
     def extract_codes(self):
-        if load_cache(self.config, CACHE_NAME_CODES):
+        if load_cache(self.config, CODES_CACHE_NAME):
             return 
 
         query = "query { "
@@ -35,4 +35,4 @@ class Extractor:
         
         query += "}"	
                 
-        self.extract_query(query, CACHE_NAME_CODES)
+        self.extract_query(query, CODES_CACHE_NAME)

@@ -1,4 +1,4 @@
-from etl.constants import CACHE_NAME_CODES
+from etl.constants import CODES_CACHE_NAME
 from etl.models import Report
 from services.file_io import load_cache
 
@@ -26,7 +26,7 @@ class Transformer:
             "characterData" { "character" { "recentReports" { "data" [ { "code": code }, ...]
             "characterData" { "character" { "zoneRankings" { "rankings" [ {"report": {"code": code } }, ...]
         """
-        raw_json = load_cache(self.config, CACHE_NAME_CODES)
+        raw_json = load_cache(self.config, CODES_CACHE_NAME)
         if not raw_json:
             return []
 

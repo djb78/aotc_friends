@@ -1,2 +1,2 @@
 # JSON cache filenames
-CACHE_NAME_CODES = "codes"
+CODES_CACHE_NAME = "codes"
