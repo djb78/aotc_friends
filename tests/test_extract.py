@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from etl.extract import Extractor
-from etl.constants import CACHE_NAME_CODES
+from etl.constants import CODES_CACHE_NAME
 
 @pytest.fixture
 def mock_client():
@@ -25,7 +25,7 @@ def test_extract_codes_success(mock_load_cache, mock_save_cache, mock_client, va
     ex.extract_codes()
     mock_load_cache.assert_called_once_with(
         valid_config, 
-        CACHE_NAME_CODES
+        CODES_CACHE_NAME
     )
     assert mock_client.query.called
 
@@ -36,7 +36,7 @@ def test_extract_codes_success(mock_load_cache, mock_save_cache, mock_client, va
 
     mock_save_cache.assert_called_once_with(
         valid_config,
-        CACHE_NAME_CODES,
+        CODES_CACHE_NAME,
         mock_client.query.return_value
     )
 
@@ -50,7 +50,7 @@ def test_extract_codes_cached(mock_load_cache, mock_save_cache, mock_client, val
 
     mock_load_cache.assert_called_once_with(
         valid_config,
-        CACHE_NAME_CODES
+        CODES_CACHE_NAME
     )
 
     assert not mock_client.query.called

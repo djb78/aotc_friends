@@ -1,6 +1,6 @@
 from unittest.mock import patch
 import pytest
-from etl.constants import CACHE_NAME_CODES
+from etl.constants import CODES_CACHE_NAME
 from etl.transform import Transformer
 from etl.models import Report
 
@@ -75,5 +75,6 @@ def test_transform_codes_reports_defensive_parsing(mock_load_cache, valid_config
     t = Transformer(valid_config)
     t.transform_codes_reports()
 
+    mock_load_cache.assert_called_once_with(valid_config, CODES_CACHE_NAME)
     assert len(t.reports) == 1
     assert "r_missing" in t.reports
