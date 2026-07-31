@@ -1,5 +1,6 @@
 import json
 import pytest
+import copy
 from services.file_io import load_config, save_cache, load_cache
 
 def test_load_config_success(tmp_path, valid_config):
@@ -43,7 +44,7 @@ def test_load_config_missing_file():
      ]
 )
 def test_load_config_validation_errors(tmp_path, valid_config, to_delete, to_empty, expected_error):
-    config_data = valid_config.copy()
+    config_data = copy.deepcopy(valid_config)
      
     # test missing keys
     for key in to_delete:
