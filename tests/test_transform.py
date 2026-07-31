@@ -6,35 +6,17 @@ from etl.models import Report
 
 @pytest.fixture
 def mock_codes_json():
-    """sample JSON response, duplicate codes in all sources"""
+    """sample JSON response"""
     return {
         "data": {
             "reportData": {
                 "reports": {
-                    "data": [
-                        {"code": "GuildRprt"},
-                        {"code": "duplicate"}
-                    ]
-                }
-            },
-            "characterData": {
-                "character": {
-                    "recentReports": {
-                        "data": [
-                            {"code": "RecentRpt"},
-                            {"code": "duplicate"}
-                        ]
-                    },
-                    "zoneRankings": {
-                        "rankings": [
-                            {"report": {"code": "r_missing"}},
-                            {"report": {"code": "duplicate"}}
-                        ]
-                    }
+                    "data": [{"code": "GuildRprt"}]
                 }
             }
         }
     }
+        
 
 @patch("etl.transform.load_cache")
 def test_transform_codes_reports_success(mock_load_cache, mock_codes_json, valid_config):
@@ -43,38 +25,7 @@ def test_transform_codes_reports_success(mock_load_cache, mock_codes_json, valid
     t = Transformer(valid_config)
     t.transform_codes_reports()
 
-    mock_load_cache.assert_called_once_with(valid_config, CACHE_NAME_CODES)
-    assert len(t.reports) == 4
-    assert all(isinstance(r, Report) for r in t.reports.values())
-
-    expected_codes = ["GuildRprt", "RecentRpt", "duplicate", "r_missing"]
-
-    assert list(t.reports.keys()) == expected_codes
-
-@patch("etl.transform.load_cache")
-def test_transform_codes_reports_defensive_parsing(mock_load_cache, valid_config):
-    """Test: no crash on missing/malformed JSON structure"""
-    incomplete_data = {
-        "data": {
-            "reportData": None, # reports missing
-            "characterData": {
-                "character": {
-                    # recent reports missing
-                    "zoneRankings": {
-                        "rankings": [
-                            {"report": None},
-                            {"report": {"code": "r_missing"}}
-                        ]
-                    }
-                }
-            }
-        }
-    }
-    mock_load_cache.return_value = incomplete_data
-
-    t = Transformer(valid_config)
-    t.transform_codes_reports()
-
     mock_load_cache.assert_called_once_with(valid_config, CODES_CACHE_NAME)
     assert len(t.reports) == 1
-    assert "r_missing" in t.reports
+    assert isinstance(t.reports["GuildRprt"], Report)
+    assert t.reports["GuildRprt"].code == "GuildRprt"

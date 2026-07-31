@@ -43,11 +43,9 @@ def main():
     t = Transformer(config)
     t.transform_codes_reports()
 
-    # transformer check
+    # parser/transformer check
     for report in t.reports:
         print(report)
-
-    
 
 if __name__ == "__main__":
     main()
