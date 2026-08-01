@@ -1,6 +1,6 @@
-from etl.constants import CODES_CACHE_NAME
 from services.file_io import save_cache, load_cache
-from services.client import WCLClient
+from etl.constants import CODES_CACHE_NAME, FIGHTS_CACHE_NAME
+from etl.parser import parse_unique_codes
 
 class Extractor:
     def __init__(self, client, config: dict):
@@ -36,3 +36,22 @@ class Extractor:
         query += "}"	
                 
         self.extract_query(query, CODES_CACHE_NAME)
+
+    def extract_fights(self):
+        """query wcl for each reports fight/player details"""
+        if load_cache(self.config, FIGHTS_CACHE_NAME):
+            return
+
+        codes_json = load_cache(self.config, CODES_CACHE_NAME)
+        if not codes_json:
+            return
+        codes = parse_unique_codes(codes_json)
+
+        query = "query { reportData { " 
+        for i, code in enumerate(codes):
+            query += f"report{i}: report(code: \"{code}\") {{"
+            query += "fights(difficulty: 4) { id name kill friendlyPlayers } "
+            query += "} "
+        query += "}}"
+
+        self.extract_query(query, FIGHTS_CACHE_NAME)
