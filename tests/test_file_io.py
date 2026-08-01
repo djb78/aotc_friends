@@ -88,3 +88,13 @@ def test_save_load_cache(tmp_path, valid_config):
 def test_load_cache_missing(tmp_path):
      config = { 'cache_path_r': tmp_path / "cache" }
      assert load_cache(config, "not_here") == {}
+
+def test_load_cache_corrupted(tmp_path):
+    config = { 'cache_path_r': tmp_path / "cache" }
+    config["cache_path_r"].mkdir(parents=True, exist_ok=True)
+
+    corrupted_file = config["cache_path_r"] / "bad_cache.json"
+    with corrupted_file.open("w", encoding="utf-8") as f:
+        f.write("{ invalid json: 123 }")
+
+    assert load_cache(config, "bad_cache") == {}

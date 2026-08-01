@@ -48,4 +48,8 @@ def load_cache(config: dict, cache_name: str)->dict:
         return {}		
 
     with cache_path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+        try:
+            return json.load(f)
+        except json.JSONDecodeError:
+            print(f"{cache_path} corrupted")
+            return {}
