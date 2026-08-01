@@ -38,14 +38,13 @@ def main():
         print(f"\nERROR: {e}")
 
     e = Extractor(client, config)
-    e.extract_codes()
+    e.extract_all()
 
     t = Transformer(config)
     t.transform_codes_reports()
 
     # parser/transformer check
-    for report in t.reports:
-        print(report)
+    print(t.reports)
 
 if __name__ == "__main__":
     main()

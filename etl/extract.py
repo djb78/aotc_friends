@@ -11,6 +11,13 @@ class Extractor:
         response = self.client.query(query)
         save_cache(self.config, cache_name, response)
 
+    def extract_all(self):
+        """ coordinator for extraction pipeline """
+        print("starting extraction phase")
+        self.extract_codes()
+        self.extract_fights()
+        print("extraction phase complete")
+
     def extract_codes(self):
         if load_cache(self.config, CODES_CACHE_NAME):
             return 

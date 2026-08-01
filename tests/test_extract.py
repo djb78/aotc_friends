@@ -27,6 +27,20 @@ def mock_codes_json():
         }
     }
 
+# extract_all test
+# ================
+def test_extract_all(mock_client, valid_config):
+    e = Extractor(mock_client, valid_config)
+
+    e.extract_codes = MagicMock()
+    e.extract_fights = MagicMock()
+
+    e.extract_all()
+
+    e.extract_codes.assert_called_once()
+    e.extract_fights.assert_called_once()
+
+
 # extract_codes tests
 # ===================
 @patch("etl.extract.save_cache")
