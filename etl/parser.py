@@ -10,6 +10,16 @@ def _safe_get(clean_json: dict, keys: list, default=None):
             return default
     return current_json
 
+def clean_raw_json(raw_json: dict) -> dict:
+    """ handles potential top level "data" key """
+    if isinstance(raw_json, dict):
+        clean_json = raw_json.get("data", raw_json)
+    else:
+        clean_json = raw_json
+    if not isinstance(clean_json, dict):
+        return {}
+    return clean_json
+
 def parse_unique_codes(raw_json: dict) -> list:
     """ Recieve raw_json (loaded from cache) and retrieve a list of unique codes
         return sorted list of unique codes
@@ -21,13 +31,7 @@ def parse_unique_codes(raw_json: dict) -> list:
     if not raw_json:
         return []
     
-    # handle potential top level "data" key
-    if isinstance(raw_json, dict):
-        clean_json = raw_json.get("data", raw_json)
-    else:
-        clean_json = raw_json
-    if not isinstance(clean_json, dict):
-        return []
+    clean_json = clean_raw_json(raw_json)
 
     # retrieve codes
     unique_codes = set() 
