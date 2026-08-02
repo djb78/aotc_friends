@@ -51,3 +51,36 @@ def parse_unique_codes(raw_json: dict) -> list:
                 unique_codes.add(code)
 
     return list(sorted(unique_codes))
+
+def parse_fight_ids(fights_json: dict) -> dict:
+    """ parse fight_json for each codes fight_ids
+        return dict {"code": [id1, id2, id3, ...]}
+        expected json structure:
+            "data": { "reportData": { "report0": { "code": code }
+            "data": { "reportData": { "report0": { "fights": [ {"id1": id1 }, { "id2": id2 }, ...]
+        expected return value
+            {   "code1": [ "id1", "id2", ... ], 
+                "code2": [ "id1", "id2", ... ], ... }
+    """
+    if not fights_json:
+        return {}
+
+    clean_json = clean_raw_json(fights_json)
+
+    report_data = _safe_get(clean_json, ["reportData"], {})
+    report_fights = {}
+    for report in report_data.values():
+        code = _safe_get(report, ["code"], [])
+        fights = _safe_get(report, ["fights"], [])
+
+        fight_ids = []
+        for fight in fights:
+            if isinstance(fight, dict) and "id" in fight:
+                fight_ids.append(fight["id"])
+
+        if code and fight_ids:
+            report_fights[code] = fight_ids
+
+    return report_fights
+
+
