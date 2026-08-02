@@ -56,7 +56,8 @@ class Extractor:
 
         query = "query { reportData { " 
         for i, code in enumerate(codes):
-            query += f"report{i}: report(code: \"{code}\") {{"
+            query += f"report{i}: report(code: \"{code}\") {{ "
+            query += "code "
             query += "fights(difficulty: 4) { id name kill friendlyPlayers } "
             query += "} "
         query += "}}"
