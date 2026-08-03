@@ -7,7 +7,8 @@ class Extractor:
         self.client = client
         self.config = config
 
-    def extract_query(self,  query: str, cache_name: str):
+    def extract_query(self, query: str, cache_name: str):
+        """ wrapper for querying API and saving to cache """
         response = self.client.query(query)
         save_cache(self.config, cache_name, response)
 
@@ -19,9 +20,28 @@ class Extractor:
         print("extraction phase complete")
 
     def extract_codes(self):
+        """ uses config data to extract and cache report codes
+            requires valid config data
+                guild_id
+                zone_id
+                anchor(name, server, region)
+
+            query format:
+                query { 
+                reportData { reports(guildID: guild_id, zoneID: zone_id) { 
+                    data: { code }
+                }}
+                characterData { character(name: name, serverSlug: server, serverRegion: region) {
+                    recentReports(limit:100) { data { code } }
+                    zoneRankings(zoneID: zone_id, difficulty: 4)
+                }}
+                }
+        """
+        # check for existing cache
         if load_cache(self.config, CODES_CACHE_NAME):
             return 
 
+        # use config data to construct GraphQL query
         query = "query { "
 
         # Guild Report Codes
@@ -31,7 +51,7 @@ class Extractor:
         query += "data { code } }"
         query += "} "
 
-        # Anchor Character Report Codes & Ranks
+        # Anchor Character Report Codes & zoneRankings
         query += "characterData{ character( "
         query += f"name: \"{self.config['anchor']['name']}\", "
         query += f"serverSlug: \"{self.config['anchor']['server']}\", "
@@ -41,19 +61,35 @@ class Extractor:
         query += "} } "
         
         query += "}"	
-                
+
+        # query API and cache response       
         self.extract_query(query, CODES_CACHE_NAME)
 
     def extract_fights(self):
-        """query wcl for each reports fight/player details"""
+        """ uses codes from extract_codes cache
+            extracts and caches fight information 
+            
+            query format (multi-aliased):
+                query { reportData { 
+                    report0: report(code: <code>) {
+                        code
+                        fights(difficulty: 4) { id name kill friendlyPlayers }
+                    },
+                    report1: report(code: <code>) { ... }, ... 
+                }}
+        """
+        # check for existing fight info cache
         if load_cache(self.config, FIGHTS_CACHE_NAME):
             return
 
+        # load the cache created by extract_codes
         codes_json = load_cache(self.config, CODES_CACHE_NAME)
         if not codes_json:
             return
+        # retrieve list of codes
         codes = parse_unique_codes(codes_json)
 
+        # use codes to construct multi-aliased GraphQL query
         query = "query { reportData { " 
         for i, code in enumerate(codes):
             query += f"report{i}: report(code: \"{code}\") {{ "
@@ -62,4 +98,5 @@ class Extractor:
             query += "} "
         query += "}}"
 
+        # query API and cache response
         self.extract_query(query, FIGHTS_CACHE_NAME)
