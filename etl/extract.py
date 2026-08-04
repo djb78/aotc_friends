@@ -1,11 +1,12 @@
 from services.file_io import save_cache, load_cache
-from etl.constants import CODES_CACHE_NAME, FIGHTS_CACHE_NAME
-from etl.parser import parse_unique_codes
+from etl.constants import CODES_CACHE_NAME, FIGHTS_CACHE_NAME, PLAYERS_CACHE_NAME
+from etl.parser import parse_unique_codes, parse_fight_ids, _safe_get
 
 class Extractor:
     def __init__(self, client, config: dict):
         self.client = client
         self.config = config
+        self.chunk_size = config.get("chunk_size", 10)
 
     def extract_query(self, query: str, cache_name: str):
         """ wrapper for querying API and saving to cache """
@@ -17,6 +18,7 @@ class Extractor:
         print("starting extraction phase")
         self.extract_codes()
         self.extract_fights()
+        self.extract_players()
         print("extraction phase complete")
 
     def extract_codes(self):
@@ -100,3 +102,58 @@ class Extractor:
 
         # query API and cache response
         self.extract_query(query, FIGHTS_CACHE_NAME)
+
+    def extract_players(self):
+        """ uses codes and ids from extract_fights cache 
+            extracts and caches playerDetails
+
+            query format (multi-aliased, chunked):
+                query { reportData {
+                    report0: report(code: <code0>) {
+                        playerDetails(fightIDs=[<id1>, <id2>, ...])
+                    },
+                    report1: report(code: <code1>) { ... }, ...
+                }}
+        """
+        # check for existing cache
+        if load_cache(self.config, PLAYERS_CACHE_NAME):
+            return
+
+        # losd the cache created by extract_fights
+        fights_json = load_cache(self.config, FIGHTS_CACHE_NAME)
+        if not fights_json:
+            return 
+        # retrieve codes and fight ids
+        code_ids = parse_fight_ids(fights_json)
+        if not isinstance(code_ids, dict):
+            return
+
+        # create chunks
+        # default self.chunk_size = 10
+        unchunked = list(code_ids.items())
+        chunks = [ unchunked[i:i+self.chunk_size] 
+                  for i in range(0, len(unchunked), self.chunk_size)]
+
+        # collect responses to chunk queryies
+        chunk_responses = {}
+        for i, chunk in enumerate(chunks):
+            # construct multi-aliased GraphQL query
+            query = "query { reportData { "
+            for j, (code, ids) in enumerate(chunk):
+                query += f"report{i}_{j}: report(code: \"{code}\") {{ "
+                query += "code "
+                query += "playerDetails(fightIDs: ["
+                query += ", ".join(map(str, ids))
+                query += "]) "
+                query += "} "
+            query += "} } "
+
+            # query API and add response to chunk_responses
+            chunk_response = self.client.query(query)
+            chunk_reports = _safe_get(chunk_response, ["data", "reportData"])
+            if isinstance(chunk_reports, dict):
+                chunk_responses.update(chunk_reports)
+
+        # cache merged chunk responses
+        merged_response = {"data": {"reportData": chunk_responses}}
+        save_cache(self.config, PLAYERS_CACHE_NAME, merged_response)
