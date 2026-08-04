@@ -1,6 +1,10 @@
 
-def _safe_get(clean_json: dict, keys: list, default=None):
-    """navigate nested dictionary, return default if key is missing/None"""
+def safe_get(clean_json: dict, keys: list, default=None):
+    """
+    confirms clean_json is a dict and the key exists (recursive)
+    returns the value associated with the last key
+        default/None if clean_json is bad or any key is missing
+    """
     current_json = clean_json
     for key in keys:
         if not isinstance(current_json, dict):
@@ -36,15 +40,15 @@ def parse_unique_codes(raw_json: dict) -> list:
     # retrieve codes
     unique_codes = set() 
     # guild report codes
-    for report in _safe_get(clean_json, ["reportData", "reports", "data"], []):
+    for report in safe_get(clean_json, ["reportData", "reports", "data"], []):
         if isinstance(report, dict) and (code := report.get("code")):
             unique_codes.add(code)
     # recent report codes
-    for report in _safe_get(clean_json, ["characterData", "character", "recentReports", "data"], []):
+    for report in safe_get(clean_json, ["characterData", "character", "recentReports", "data"], []):
         if isinstance(report, dict) and (code := report.get("code")):
             unique_codes.add(code)
     # zoneRankings
-    for ranking in _safe_get(clean_json, ["characterData", "character", "zoneRankings", "rankings"], []):
+    for ranking in safe_get(clean_json, ["characterData", "character", "zoneRankings", "rankings"], []):
         if isinstance(ranking, dict):
             report = ranking.get("report")
             if isinstance(report, dict) and (code := report.get("code")):
@@ -67,11 +71,11 @@ def parse_fight_ids(fights_json: dict) -> dict:
 
     clean_json = clean_raw_json(fights_json)
 
-    report_data = _safe_get(clean_json, ["reportData"], {})
+    report_data = safe_get(clean_json, ["reportData"], {})
     report_fights = {}
     for report in report_data.values():
-        code = _safe_get(report, ["code"], [])
-        fights = _safe_get(report, ["fights"], [])
+        code = safe_get(report, ["code"], [])
+        fights = safe_get(report, ["fights"], [])
 
         fight_ids = []
         for fight in fights:

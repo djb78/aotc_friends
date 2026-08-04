@@ -1,5 +1,5 @@
 import pytest
-from etl.parser import _safe_get, parse_unique_codes, parse_fight_ids
+from etl.parser import safe_get, parse_unique_codes, parse_fight_ids
 
 @pytest.fixture
 def mock_fights_json():
@@ -30,9 +30,9 @@ def mock_fights_json():
 
 def test_safe_get():
     data = {"a": {"b": {"c": 43}}}
-    assert _safe_get(data, ["a", "b", "c"]) == 43
-    assert _safe_get(data, ["a", "x", "c"]) is None
-    assert _safe_get(data, ["a", "b", "c", "d"]) is None
+    assert safe_get(data, ["a", "b", "c"]) == 43
+    assert safe_get(data, ["a", "x", "c"]) is None
+    assert safe_get(data, ["a", "b", "c", "d"]) is None
 
 def test_parse_unique_codes_success():
     """parse sample JSON response, remove duplicate codes (all sources)"""

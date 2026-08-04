@@ -1,6 +1,6 @@
 from services.file_io import save_cache, load_cache
 from etl.constants import CODES_CACHE_NAME, FIGHTS_CACHE_NAME, PLAYERS_CACHE_NAME
-from etl.parser import parse_unique_codes, parse_fight_ids, _safe_get
+from etl.parser import parse_unique_codes, parse_fight_ids, safe_get
 
 class Extractor:
     def __init__(self, client, config: dict):
@@ -150,7 +150,7 @@ class Extractor:
 
             # query API and add response to chunk_responses
             chunk_response = self.client.query(query)
-            chunk_reports = _safe_get(chunk_response, ["data", "reportData"])
+            chunk_reports = safe_get(chunk_response, ["data", "reportData"])
             if isinstance(chunk_reports, dict):
                 chunk_responses.update(chunk_reports)
 
