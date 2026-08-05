@@ -56,35 +56,66 @@ def parse_unique_codes(raw_json: dict) -> list:
 
     return list(sorted(unique_codes))
 
+
 def parse_fight_ids(fights_json: dict) -> dict:
-    """ parse fight_json for each codes fight_ids
-        return dict {"code": [id1, id2, id3, ...]}
-        expected json structure:
-            "data": { "reportData": { "report0": { "code": code }
-            "data": { "reportData": { "report0": { "fights": [ {"id1": id1 }, { "id2": id2 }, ...]
-        expected return value
-            {   "code1": [ "id1", "id2", ... ], 
-                "code2": [ "id1", "id2", ... ], ... }
+    """ legacy wrapper
+        retrieve codes and associated fight ids for extract_players
+        refactored original parse_fight_ids into parse_fights for transform phase
+        return dict {"code": [id1, id2, id3, ...], ... }
     """
+    fight_details = parse_fights(fights_json)
+    if not isinstance(fight_details, dict):
+        return {}
+    
+    fight_ids = {}
+    for code, fights_list in fight_details.items():
+        if not code or not isinstance(fights_list, list): 
+            continue
+
+        ids = []
+        for fight in fights_list:
+            if isinstance(fight, dict) and "id" in fight:
+                ids.append(fight["id"])
+        if ids:
+            fight_ids[code] = ids
+            
+    return fight_ids
+
+def parse_fights(fights_json: dict) -> dict:
+    """ parse fights_json for fight details
+        return a "code" keyed dictionary of "fights"
+
+        expected fights_json structure:
+            "data": { "reportData": { 
+                "report0_0: { 
+                    "code": code, 
+                    "fights": fights_list
+                }, ... 
+            } }
+        expected output:
+            fights = { code: fights_list, ... }
+    """
+    # verify fights_json
     if not fights_json:
         return {}
 
+    # input/output prep
     clean_json = clean_raw_json(fights_json)
+    fights = {}
 
-    report_data = safe_get(clean_json, ["reportData"], {})
-    report_fights = {}
-    for report in report_data.values():
-        code = safe_get(report, ["code"], [])
-        fights = safe_get(report, ["fights"], [])
+    # parse each report
+    for report in safe_get(clean_json, ["reportData"], {}).values():
+        # retrieve report code
+        if not isinstance(report, dict) or not (code := report.get("code")):
+            continue  
 
-        fight_ids = []
-        for fight in fights:
-            if isinstance(fight, dict) and "id" in fight:
-                fight_ids.append(fight["id"])
+        # add {code: fights_list} to fights
+        fights_list = safe_get(report, ["fights"], None)
+        if fights_list and isinstance(fights_list, list):
+            fights[code] = fights_list
+    
+    return fights
 
-        if code and fight_ids:
-            report_fights[code] = fight_ids
 
-    return report_fights
 
 

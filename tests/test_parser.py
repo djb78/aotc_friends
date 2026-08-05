@@ -1,5 +1,5 @@
 import pytest
-from etl.parser import safe_get, parse_unique_codes, parse_fight_ids
+from etl.parser import safe_get, parse_unique_codes, parse_fight_ids, parse_fights
 
 @pytest.fixture
 def mock_fights_json():
@@ -8,20 +8,20 @@ def mock_fights_json():
         "data": {
             "reportData": {
                 "report1": {
-                    "code": "code1",
+                    "code": "multiple",
                     "fights": [
-                        {"id": 1, "name": "Gnarlroot", "kill": True},
-                        {"id": 2, "name": "Igira", "kill": False}
+                        {"id": 1, "name": "Gnarlroot", "kill": True, "friendlyPlayers": [1, 2, 3]},
+                        {"id": 2, "name": "Igira", "kill": False, "friendlyPlayers": [1, 3, 4, 2]}
                     ]
                 },
                 "report2": {
-                    "code": "code2",
+                    "code": "single",
                     "fights": [
-                        {"id": 10, "name": "Smolderon", "kill": True}
+                        {"id": 10, "name": "Smolderon", "kill": True, "friendlyPlayers": [2, 4, 1, 3]}
                     ]
                 },
                 "report0": {
-                    "code": "EMPTY",
+                    "code": "missing",
                     "fights": []
                 }
             }
@@ -99,13 +99,13 @@ def test_parse_fight_ids_success(mock_fights_json):
     """ the correct dictionary is returned in response to json input """
     fight_ids = parse_fight_ids(mock_fights_json)
 
-    assert "code1" in fight_ids
-    assert "code2" in fight_ids
-    assert "EMPTY" not in fight_ids
+    assert "multiple" in fight_ids
+    assert "single" in fight_ids
+    assert "missing" not in fight_ids
 
-    assert 1 in fight_ids["code1"]
-    assert 2 in fight_ids["code1"]
-    assert 10 in fight_ids["code2"]
+    assert 1 in fight_ids["multiple"]
+    assert 2 in fight_ids["multiple"]
+    assert 10 in fight_ids["single"]
 
 def test_parse_fight_ids_empty():
     """ an empty dict is returned in response to an empty input """
@@ -113,4 +113,52 @@ def test_parse_fight_ids_empty():
     for empty in empties:
         fight_ids = parse_fight_ids(empty)
         assert fight_ids == {}
+
+# parse_fights
+# ============
+def test_parse_fights_success(mock_fights_json):
+    """ Test: successfully parse fights data from mock_fights_json 
+    
+        expected format from parse_fights(mock_fights_json):
+            { "multiple": [ { "id": 1, ... }, { "id": 2, ... } ], 
+                "single": [ { "id": 10, ... } ] }
+    """
+    sample_fights = {
+        1: {"id": 1, "name": "Gnarlroot", "kill": True, "friendlyPlayers": [ 1, 2, 3 ] },
+        2: {"id": 2, "name": "Igira", "kill": False, "friendlyPlayers": [1, 3, 4, 2] },
+        10: {"id": 10, "name": "Smolderon", "kill": True, "friendlyPlayers": [2, 4, 1, 3]}
+    }
+    sample_fields = ["id", "name", "kill", "friendlyPlayers"]
+
+    reports = parse_fights(mock_fights_json)
+
+    assert "multiple" in reports
+    assert len(reports["multiple"]) == 2
+    assert "single" in reports
+    assert len(reports["single"]) == 1
+    assert "missing" not in reports
+
+    for report in reports.values():
+        for fight in report:
+            assert fight["id"] in sample_fights
+            sample_fight = sample_fights[fight["id"]]
+            for field in sample_fields:
+                assert fight[field] == sample_fight[field]
+
+def test_parse_fights_defensive():
+    """ Test: skip missing/malformed codes/fights/reports
+    """
+    missing_samples = [
+        None,
+        {},
+        {"data": None},
+        {"data": { "reportData": {"report0": {"code": "no_fights"}}}},
+        {"data": { "reportData": {"report0": "no_dict"}}}
+    ]
+
+    for sample in missing_samples:
+        clean_dict = parse_fights(sample)
+        assert isinstance(clean_dict, dict)
+        assert len(clean_dict) == 0
+
 
