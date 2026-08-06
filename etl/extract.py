@@ -13,6 +13,14 @@ class Extractor:
         response = self.client.query(query)
         save_cache(self.config, cache_name, response)
 
+    def chunk_list(self, unchunked: list) -> list[list]:
+        """ turns a list into chunk_size chunks """
+        if not unchunked or not isinstance(unchunked, list):
+            return []
+        return [unchunked[i:i + self.chunk_size] 
+                for i in range(0, len(unchunked), self.chunk_size)]
+
+
     def extract_all(self):
         """ coordinator for extraction pipeline """
         print("starting extraction phase")
@@ -129,11 +137,8 @@ class Extractor:
             return
 
         # create chunks
-        # default self.chunk_size = 10
-        unchunked = list(code_ids.items())
-        chunks = [ unchunked[i:i+self.chunk_size] 
-                  for i in range(0, len(unchunked), self.chunk_size)]
-
+        chunks = self.chunk_list(list(code_ids.items()))
+        
         # collect responses to chunk queryies
         chunk_responses = {}
         for i, chunk in enumerate(chunks):

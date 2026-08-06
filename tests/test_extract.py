@@ -40,6 +40,29 @@ def mock_fights_json():
                     "fights": [{"id": 3}]
     } } } }
 
+# extract_query
+
+# chunk_list
+# ==========
+def test_chunk_list(mock_client, valid_config):
+    """ Test: correctly slices lists 
+        based on config chunk_size
+    """
+    valid_config["chunk_size"] = 3
+    e = Extractor(mock_client, valid_config)
+
+    data = [1, 2, 3, 4, 5, 6, 7]
+    chunks = e.chunk_list(data)
+    assert chunks == [[1, 2, 3], [4, 5, 6], [7]]
+
+    assert e.chunk_list([]) == []
+    assert e.chunk_list(None) == []
+    
+
+    
+
+
+
 # extract_all test
 # ================
 def test_extract_all(mock_client, valid_config):
