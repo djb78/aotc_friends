@@ -87,7 +87,7 @@ def parse_fights(fights_json: dict) -> dict:
 
         expected fights_json structure:
             "data": { "reportData": { 
-                "report0_0: { 
+                "ch0_r0: { 
                     "code": code, 
                     "fights": fights_list
                 }, ... 
@@ -123,7 +123,7 @@ def parse_players(players_json: dict) -> dict:
         
         expected input: players_json
             "data": { "reportData": { 
-                "report0_0: { 
+                "ch0_r0: { 
                     "code": code, 
                     "playerDetails": { role: [ player_info, ... ], ...
                 }, ... 

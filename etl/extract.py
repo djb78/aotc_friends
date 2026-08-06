@@ -138,10 +138,10 @@ class Extractor:
 
             query format (multi-aliased, chunked):
                 query { reportData {
-                    report0: report(code: <code0>) {
+                    ch0_r0: report(code: <code0>) {
                         playerDetails(fightIDs=[<id1>, <id2>, ...])
                     },
-                    report1: report(code: <code1>) { ... }, ...
+                    ch0_r1: report(code: <code1>) { ... }, ...
                 }}
         """
         # check for existing cache
@@ -166,7 +166,7 @@ class Extractor:
             # construct multi-aliased GraphQL query
             query = "query { reportData { "
             for j, (code, ids) in enumerate(chunk):
-                query += f"report{i}_{j}: report(code: \"{code}\") {{ "
+                query += f"ch{i}_r{j}: report(code: \"{code}\") {{ "
                 query += "code "
                 query += "playerDetails(fightIDs: ["
                 query += ", ".join(map(str, ids))

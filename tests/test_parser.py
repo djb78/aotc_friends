@@ -7,20 +7,20 @@ def mock_fights_json():
     return {
         "data": {
             "reportData": {
-                "report1": {
+                "ch0_r0": {
                     "code": "multiple",
                     "fights": [
                         {"id": 1, "name": "Gnarlroot", "kill": True, "friendlyPlayers": [1, 2, 3]},
                         {"id": 2, "name": "Igira", "kill": False, "friendlyPlayers": [1, 3, 4, 2]}
                     ]
                 },
-                "report2": {
+                "ch0_r1": {
                     "code": "single",
                     "fights": [
                         {"id": 10, "name": "Smolderon", "kill": True, "friendlyPlayers": [2, 4, 1, 3]}
                     ]
                 },
-                "report0": {
+                "ch0_r2": {
                     "code": "missing",
                     "fights": []
     } } } }
@@ -29,7 +29,7 @@ def mock_fights_json():
 def mock_players_json():
     """ sample players_json (valid) """
     return { "data": { "reportData": {
-                "report1": {
+                "ch0_r0": {
                     "code": "flex_role",
                     "playerDetails": {
                         "tanks": [
@@ -41,13 +41,13 @@ def mock_players_json():
                             {"id": 4, "name": "flex", "specs": ["dps_spec"]} ]
                     }
                 },
-                "report2": {
+                "ch0_r1": {
                     "code": "solo",
                     "playerDetails": {
                         "tanks": [ {"id": 1, "name": "tank", "specs": ["tank_spec"]} ]
                     } 
                 },
-                "report3": {
+                "ch0_r2": {
                     "code": "private",
                     "playerDetails": None
                 } 
@@ -177,8 +177,8 @@ def test_parse_fights_defensive():
         None,
         {},
         {"data": None},
-        {"data": { "reportData": {"report0": {"code": "no_fights"}}}},
-        {"data": { "reportData": {"report0": "no_dict"}}}
+        {"data": { "reportData": {"ch0_r0": {"code": "no_fights"}}}},
+        {"data": { "reportData": {"ch0_r0": "no_dict"}}}
     ]
 
     for sample in missing_samples:
@@ -228,8 +228,8 @@ def test_parse_players_defensive():
         None,
         {},
         {"data": None},
-        {"data": {"reportData": {"report0_0": {"code": "no_details"}}}},
-        {"data": {"reportData": {"report0_0": {"code": "bad_details", "playerDetails": "no_dict"}}}}
+        {"data": {"reportData": {"ch0_r0": {"code": "no_details"}}}},
+        {"data": {"reportData": {"ch0_r0": {"code": "bad_details", "playerDetails": "no_dict"}}}}
     ]
 
     for sample in missing_samples:

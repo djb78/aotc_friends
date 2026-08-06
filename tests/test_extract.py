@@ -200,25 +200,25 @@ def test_extract_players_success(mock_load_cache, mock_save_cache, mock_client, 
     mock_response_1 = {
         "data": {
             "reportData": {
-                "report0_0": {
+                "ch0_r0": {
                     "code": "CODE1",
                     "playerDetails": {"tanks": [], "healers": [], "dps": []}
     } } } }
     mock_response_2 = {
         "data": {
             "reportData": {
-                "report1_0": {
+                "ch1_r0": {
                     "code": "CODE2",
                     "playerDetails": {"tanks": [], "healers": [], "dps": []}
     } } } }
     mock_response_merged = {
         "data": {
             "reportData": {
-                "report0_0": {
+                "ch0_r0": {
                     "code": "CODE1",
                     "playerDetails": {"tanks": [], "healers": [], "dps": []}
                 }, 
-                "report1_0": {
+                "ch1_r0": {
                     "code": "CODE2",
                     "playerDetails": {"tanks": [], "healers": [], "dps": []}
     } } } }
