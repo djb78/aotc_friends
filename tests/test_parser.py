@@ -1,5 +1,5 @@
 import pytest
-from etl.parser import safe_get, parse_unique_codes, parse_fight_ids, parse_fights
+from etl.parser import safe_get, parse_unique_codes, parse_fight_ids, parse_fights, parse_players
 
 @pytest.fixture
 def mock_fights_json():
@@ -23,10 +23,35 @@ def mock_fights_json():
                 "report0": {
                     "code": "missing",
                     "fights": []
-                }
-            }
-        }
-    }
+    } } } }
+
+@pytest.fixture
+def mock_players_json():
+    """ sample players_json (valid) """
+    return { "data": { "reportData": {
+                "report1": {
+                    "code": "flex_role",
+                    "playerDetails": {
+                        "tanks": [
+                            {"id": 1, "name": "tank", "specs": ["tank_spec"]},
+                            {"id": 4, "name": "flex", "specs": ["tank_spec"]} ], 
+                        "healers": [
+                            {"id": 2, "name": "healer", "specs": ["healer_spec"]} ],
+                        "dps": [ 
+                            {"id": 4, "name": "flex", "specs": ["dps_spec"]} ]
+                    }
+                },
+                "report2": {
+                    "code": "solo",
+                    "playerDetails": {
+                        "tanks": [ {"id": 1, "name": "tank", "specs": ["tank_spec"]} ]
+                    } 
+                },
+                "report3": {
+                    "code": "private",
+                    "playerDetails": None
+                } 
+    } } }
 
 def test_safe_get():
     data = {"a": {"b": {"c": 43}}}
@@ -162,3 +187,52 @@ def test_parse_fights_defensive():
         assert len(clean_dict) == 0
 
 
+# parse_players 
+# ==============================================
+def test_parse_players_success(mock_players_json):
+    """ Test: successfully parse playerDetails from mock_players_json 
+
+        expected format from parse_players:
+            { "code": [ player_role_info, ... ], "code": [ ... ], ... }
+
+        should safely skip private/missing logs and compile all available data
+    """
+    sample_players = {
+        (1, "tanks"): {"id": 1, "name": "tank", "specs": ["tank_spec"], "role": "tanks"},
+        (2, "healers"): {"id": 2, "name": "healer", "specs": ["healer_spec"], "role": "healers"},
+        (3, "dps"): {"id": 3, "name": "dps", "specs": ["dps_spec"], "role": "dps"},
+        (4, "tanks"): {"id": 4, "name": "flex", "specs": ["tank_spec"], "role": "tanks"},
+        (4, "dps"): {"id": 4, "name": "flex", "specs": ["dps_spec"], "role": "dps"}
+    }
+    sample_fields = ["id", "name", "specs", "role"]
+
+    player_reports = parse_players(mock_players_json)
+
+    assert "flex_role" in player_reports
+    assert len(player_reports["flex_role"]) == 4
+    assert "solo" in player_reports
+    assert len(player_reports["solo"]) == 1
+    assert "private" not in player_reports
+
+    for report in player_reports.values():
+        for player in report:
+            key = (player["id"], player["role"])
+            assert key in sample_players
+            sample_player = sample_players[key]
+            for field in sample_fields:
+                assert player[field] == sample_player[field]
+
+def test_parse_players_defensive():
+    """ Test: handle missing/malformed playerDetails, roles """
+    missing_samples = [
+        None,
+        {},
+        {"data": None},
+        {"data": {"reportData": {"report0_0": {"code": "no_details"}}}},
+        {"data": {"reportData": {"report0_0": {"code": "bad_details", "playerDetails": "no_dict"}}}}
+    ]
+
+    for sample in missing_samples:
+        clean_dict = parse_players(sample)
+        assert isinstance(clean_dict, dict)
+        assert len(clean_dict) == 0

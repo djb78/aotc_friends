@@ -116,6 +116,55 @@ def parse_fights(fights_json: dict) -> dict:
     
     return fights
 
+def parse_players(players_json: dict) -> dict:
+    """ parse players_json for character appearances
+        return a "code" keyed dictionary of "playerDetails" 
+            with role layer injected into player_info dictionaries
+        
+        expected input: players_json
+            "data": { "reportData": { 
+                "report0_0: { 
+                    "code": code, 
+                    "playerDetails": { role: [ player_info, ... ], ...
+                }, ... 
+            } }
+        expected output: players
+            { "code": [ player_role_info, ... ], "code": [ ... ], ... }
+    """
+    # verify players_json
+    if not players_json:
+        return {}
 
+    # input/output prep
+    clean_json = clean_raw_json(players_json)
+    players = {}
 
+    # retrieve reportData
+    report_data = safe_get(clean_json, ["reportData"])
+    if not isinstance(report_data, dict):
+        return {}
+    # parse each report
+    for report in report_data.values():
+        # retreive report code
+        if not isinstance(report, dict) or not (code := report.get("code")):
+            continue
 
+        # retreive playerDetails (role dictionary)
+        # player_details = { "tanks": [], "healers": [], "dps": [] }
+        player_details = safe_get(report, ["playerDetails"])
+        if not isinstance(player_details, dict):
+            continue
+        if code not in players:
+            players[code] = []
+
+        # parse the list of player_info for each role (tank, healer, dps)
+        for role, player_list in player_details.items():
+            if not isinstance(player_list, list):
+                continue
+            for player_info in player_list:
+                if isinstance(player_info, dict):
+                    player_role_info = player_info.copy()
+                    player_role_info["role"] = role
+                    players[code].append(player_role_info)
+    return players
+ 
