@@ -24,30 +24,33 @@ def clean_raw_json(raw_json: dict) -> dict:
         return {}
     return clean_json
 
-def parse_unique_codes(raw_json: dict) -> list:
+def parse_unique_codes(codes_json: dict) -> list:
     """ Recieve raw_json (loaded from cache) and retrieve a list of unique codes
         return sorted list of unique codes
+
         expected json structure: 
             "reportData" { "reports" { "data" [ {"code": code }, ... ]
             "characterData" { "character" { "recentReports" { "data" [ { "code": code }, ...]
             "characterData" { "character" { "zoneRankings" { "rankings" [ {"report": {"code": code } }, ...]
     """
-    if not raw_json:
+    # verify raw_json
+    if not codes_json:
         return []
-    
-    clean_json = clean_raw_json(raw_json)
+
+    # input/output prep
+    clean_json = clean_raw_json(codes_json)
+    unique_codes = set() 
 
     # retrieve codes
-    unique_codes = set() 
-    # guild report codes
+    # guild report codes (reports attributed to the guild)
     for report in safe_get(clean_json, ["reportData", "reports", "data"], []):
         if isinstance(report, dict) and (code := report.get("code")):
             unique_codes.add(code)
-    # recent report codes
+    # recent report codes (last 100 reports uploaded by the anchor character)
     for report in safe_get(clean_json, ["characterData", "character", "recentReports", "data"], []):
         if isinstance(report, dict) and (code := report.get("code")):
             unique_codes.add(code)
-    # zoneRankings
+    # zoneRankings (boss kills involving the anchor character)
     for ranking in safe_get(clean_json, ["characterData", "character", "zoneRankings", "rankings"], []):
         if isinstance(ranking, dict):
             report = ranking.get("report")
@@ -63,21 +66,27 @@ def parse_fight_ids(fights_json: dict) -> dict:
         refactored original parse_fight_ids into parse_fights for transform phase
         return dict {"code": [id1, id2, id3, ...], ... }
     """
+    # retrieve code keyed fights dictionary
     fight_details = parse_fights(fights_json)
     if not isinstance(fight_details, dict):
         return {}
     
     fight_ids = {}
+    # for each code/report/log
     for code, fights_list in fight_details.items():
         if not code or not isinstance(fights_list, list): 
             continue
 
-        ids = []
+        report_ids = []
+        # make a list of fight ids in the report
         for fight in fights_list:
             if isinstance(fight, dict) and "id" in fight:
-                ids.append(fight["id"])
-        if ids:
-            fight_ids[code] = ids
+                report_ids.append(fight["id"])
+
+        if not report_ids:
+            continue
+        # construct code keyed dictionary of id lists
+        fight_ids[code] = report_ids
             
     return fight_ids
 

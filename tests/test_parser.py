@@ -3,7 +3,9 @@ from etl.parser import safe_get, parse_unique_codes, parse_fight_ids, parse_figh
 
 @pytest.fixture
 def mock_fights_json():
-    """ sample fights query response """
+    """ sample fights_json 
+        multiple, single and empty report variations
+    """
     return {
         "data": {
             "reportData": {
@@ -27,7 +29,9 @@ def mock_fights_json():
 
 @pytest.fixture
 def mock_players_json():
-    """ sample players_json (valid) """
+    """ sample players_json
+        solo, group with role-swapping, private log variants
+    """
     return { "data": { "reportData": {
                 "ch0_r0": {
                     "code": "flex_role",
@@ -54,13 +58,14 @@ def mock_players_json():
     } } }
 
 def test_safe_get():
+    """ Test: recursive dictionary navigation and safe defaults """
     data = {"a": {"b": {"c": 43}}}
     assert safe_get(data, ["a", "b", "c"]) == 43
     assert safe_get(data, ["a", "x", "c"]) is None
     assert safe_get(data, ["a", "b", "c", "d"]) is None
 
 def test_parse_unique_codes_success():
-    """parse sample JSON response, remove duplicate codes (all sources)"""
+    """ Test: parse unique codes from guild, recent and ranking data """
     duplicate_data = {
         "data": {
             "reportData": {
@@ -93,7 +98,7 @@ def test_parse_unique_codes_success():
     assert codes == ["GuildRprt", "RecentRpt", "duplicate", "r_missing"]
 
 def test_parse_unique_codes_defensive():
-    """Test: no crash on missing/malformed JSON structure"""
+    """ Test: skip missing/malformed structures """
     incomplete_data = {
         "data": {
             "reportData": None, # reports missing
@@ -114,6 +119,7 @@ def test_parse_unique_codes_defensive():
     assert codes == ["r_missing"]
 
 def test_parse_unique_codes_empty():
+    """ Test: empty/None inputs return an empty list """
     assert parse_unique_codes({}) == []
     assert parse_unique_codes(None) == []
 
@@ -121,7 +127,9 @@ def test_parse_unique_codes_empty():
 # parse_fight_ids
 # ===============
 def test_parse_fight_ids_success(mock_fights_json):
-    """ the correct dictionary is returned in response to json input """
+    """ Test: legacy wrapper returns dictionary of fight id lists 
+        {code:[fightIDs]} 
+    """
     fight_ids = parse_fight_ids(mock_fights_json)
 
     assert "multiple" in fight_ids
@@ -133,7 +141,7 @@ def test_parse_fight_ids_success(mock_fights_json):
     assert 10 in fight_ids["single"]
 
 def test_parse_fight_ids_empty():
-    """ an empty dict is returned in response to an empty input """
+    """ Test: empty dict returned in response to empty input """
     empties = [{}, None, []]
     for empty in empties:
         fight_ids = parse_fight_ids(empty)
@@ -171,8 +179,7 @@ def test_parse_fights_success(mock_fights_json):
                 assert fight[field] == sample_fight[field]
 
 def test_parse_fights_defensive():
-    """ Test: skip missing/malformed codes/fights/reports
-    """
+    """ Test: skip missing/malformed fights_json elements """
     missing_samples = [
         None,
         {},
@@ -190,12 +197,10 @@ def test_parse_fights_defensive():
 # parse_players 
 # ==============================================
 def test_parse_players_success(mock_players_json):
-    """ Test: successfully parse playerDetails from mock_players_json 
+    """ Test: parse playerDetails, verify role injection, exclude private/missing logs
 
         expected format from parse_players:
             { "code": [ player_role_info, ... ], "code": [ ... ], ... }
-
-        should safely skip private/missing logs and compile all available data
     """
     sample_players = {
         (1, "tanks"): {"id": 1, "name": "tank", "specs": ["tank_spec"], "role": "tanks"},
@@ -223,7 +228,7 @@ def test_parse_players_success(mock_players_json):
                 assert player[field] == sample_player[field]
 
 def test_parse_players_defensive():
-    """ Test: handle missing/malformed playerDetails, roles """
+    """ Test: handle missing/malformed players_json """
     missing_samples = [
         None,
         {},
