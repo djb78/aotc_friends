@@ -31,11 +31,11 @@ def mock_fights_json():
     return {
         "data": {
             "reportData": {
-                "report0": {
+                "ch0_r0": {
                     "code": "CODE1",
                     "fights": [{"id": 1}, {"id": 2}]
                 },
-                "report1": {
+                "ch0_r1": {
                     "code": "CODE2",
                     "fights": [{"id": 3}]
     } } } }
@@ -145,7 +145,7 @@ def test_extract_fights_success(mock_load_cache, mock_save_cache, mock_client, v
 
     assert mock_client.query.called
     called_query = mock_client.query.call_args[0][0]
-    assert "report0" in called_query
+    assert "ch0_r0" in called_query
     assert "fights(difficulty: 4)" in called_query
 
     mock_save_cache.assert_called_once_with(

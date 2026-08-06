@@ -79,14 +79,20 @@ class Extractor:
         """ uses codes from extract_codes cache
             extracts and caches fight information 
             
-            query format (multi-aliased):
+            query format (multi-aliased, chunked):
                 query { reportData { 
-                    report0: report(code: <code>) {
+                    ch0_r0: report(code: <code>) {
                         code
                         fights(difficulty: 4) { id name kill friendlyPlayers }
                     },
-                    report1: report(code: <code>) { ... }, ... 
+                    ch0_r1: report(code: <code>) { ... }, ... 
                 }}
+        """
+        fight_data = """
+            id
+            name
+            kill
+            friendlyPlayers
         """
         # check for existing fight info cache
         if load_cache(self.config, FIGHTS_CACHE_NAME):
@@ -98,18 +104,33 @@ class Extractor:
             return
         # retrieve list of codes
         codes = parse_unique_codes(codes_json)
+        if not isinstance(codes, list):
+            return
+        
+        chunks = self.chunk_list(codes)
 
-        # use codes to construct multi-aliased GraphQL query
-        query = "query { reportData { " 
-        for i, code in enumerate(codes):
-            query += f"report{i}: report(code: \"{code}\") {{ "
-            query += "code "
-            query += "fights(difficulty: 4) { id name kill friendlyPlayers } "
-            query += "} "
-        query += "}}"
+        chunk_responses = {}
+        for i, chunk in enumerate(chunks):
 
-        # query API and cache response
-        self.extract_query(query, FIGHTS_CACHE_NAME)
+            # construct multi-aliased GraphQL query
+            query = "query { reportData { " 
+            for j, code in enumerate(chunk):
+                query += f"ch{i}_r{j}: report(code: \"{code}\") {{ "
+                query += "code "
+                query += f"fights(difficulty: 4) {{ {fight_data} }} "
+                query += "} "
+            query += "} } "
+
+            # query API and add response to chunk_responses
+            chunk_response = self.client.query(query)
+            chunk_reports = safe_get(chunk_response, ["data", "reportData"])
+            if isinstance(chunk_reports, dict):
+                chunk_responses.update(chunk_reports)
+
+        # cache merged chunk responses
+        merged_response = {"data": {"reportData": chunk_responses}}
+        save_cache(self.config, FIGHTS_CACHE_NAME, merged_response)
+
 
     def extract_players(self):
         """ uses codes and ids from extract_fights cache 
