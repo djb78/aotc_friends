@@ -11,9 +11,7 @@ def mock_client():
         "data": {
             "reportData":{
                 "reports": {"data": [{"code": "ReportCode00"}]}
-            }
-        }
-    }
+    } } }
     return client
 
 @pytest.fixture
@@ -33,10 +31,12 @@ def mock_fights_json():
             "reportData": {
                 "ch0_r0": {
                     "code": "CODE1",
+                    "startTime": 100,
                     "fights": [{"id": 1}, {"id": 2}]
                 },
                 "ch0_r1": {
                     "code": "CODE2",
+                    "startTime": 200,
                     "fights": [{"id": 3}]
     } } } }
 
@@ -57,10 +57,6 @@ def test_chunk_list(mock_client, valid_config):
 
     assert e.chunk_list([]) == []
     assert e.chunk_list(None) == []
-    
-
-    
-
 
 
 # extract_all test

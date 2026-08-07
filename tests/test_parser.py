@@ -11,6 +11,7 @@ def mock_fights_json():
             "reportData": {
                 "ch0_r0": {
                     "code": "multiple",
+                    "startTime": 100,
                     "fights": [
                         {"id": 1, "name": "Gnarlroot", "kill": True, "friendlyPlayers": [1, 2, 3]},
                         {"id": 2, "name": "Igira", "kill": False, "friendlyPlayers": [1, 3, 4, 2]}
@@ -18,6 +19,7 @@ def mock_fights_json():
                 },
                 "ch0_r1": {
                     "code": "single",
+                    "startTime": 200,
                     "fights": [
                         {"id": 10, "name": "Smolderon", "kill": True, "friendlyPlayers": [2, 4, 1, 3]}
                     ]
@@ -148,12 +150,14 @@ def test_parse_fights_success(mock_fights_json):
     assert "missing" not in reports
 
     assert reports["multiple"] == {
+        "time": 100,
         "fights": [
             {"id": 1, "name": "Gnarlroot", "kill": True, "friendlyPlayers": [ 1, 2, 3 ] },
             {"id": 2, "name": "Igira", "kill": False, "friendlyPlayers": [1, 3, 4, 2] }
         ]
     }
     assert reports["single"] == {
+        "time": 200,
         "fights": [
             {"id": 10, "name": "Smolderon", "kill": True, "friendlyPlayers": [2, 4, 1, 3]}
         ]

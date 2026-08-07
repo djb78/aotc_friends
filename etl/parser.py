@@ -98,13 +98,15 @@ def parse_fights(fights_json: dict) -> dict:
             "data": { "reportData": { 
                 "ch0_r0: { 
                     "code": code, 
+                    "startTime": time,
                     "fights": fights_list
                 }, ... 
             } }
         expected output: code keyed dictionary of
-            report dictionaries (fights: list)
+            report dictionaries (time and fights list)
             fight_reports = { 
                 code: {
+                    "time": time, 
                     "fights": fights_list}, 
                 code: { ... }, ... }
     """
@@ -126,6 +128,7 @@ def parse_fights(fights_json: dict) -> dict:
         fights_list = safe_get(report, ["fights"], None)
         if fights_list and isinstance(fights_list, list):
             fight_reports[code] = {
+                "time": safe_get(report, ["startTime"], None),
                 "fights": fights_list }
     
     return fight_reports

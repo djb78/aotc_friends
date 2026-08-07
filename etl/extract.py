@@ -83,13 +83,15 @@ class Extractor:
                 query { reportData { 
                     ch0_r0: report(code: <code>) {
                         code
-                        fights(difficulty: 4) { id name kill friendlyPlayers }
+                        startTime
+                        fights(difficulty: 4) { <fight_data> }
                     },
                     ch0_r1: report(code: <code>) { ... }, ... 
                 }}
         """
         fight_data = """
             id
+            encounterID
             name
             kill
             friendlyPlayers
@@ -106,9 +108,9 @@ class Extractor:
         codes = parse_unique_codes(codes_json)
         if not isinstance(codes, list):
             return
-        
+        # chunk data to avoid complexity limits
         chunks = self.chunk_list(codes)
-
+        # extract chunk responses
         chunk_responses = {}
         for i, chunk in enumerate(chunks):
 
@@ -117,6 +119,7 @@ class Extractor:
             for j, code in enumerate(chunk):
                 query += f"ch{i}_r{j}: report(code: \"{code}\") {{ "
                 query += "code "
+                query += "startTime "
                 query += f"fights(difficulty: 4) {{ {fight_data} }} "
                 query += "} "
             query += "} } "
