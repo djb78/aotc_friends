@@ -73,13 +73,14 @@ def parse_fight_ids(fights_json: dict) -> dict:
     
     fight_ids = {}
     # for each code/report/log
-    for code, fights_list in fight_details.items():
-        if not code or not isinstance(fights_list, list): 
+    for code, report in fight_details.items():
+        fights = safe_get(report, ["fights"], None)
+        if not code or not isinstance(fights, list):
             continue
 
         report_ids = []
         # make a list of fight ids in the report
-        for fight in fights_list:
+        for fight in fights:
             if isinstance(fight, dict) and "id" in fight:
                 report_ids.append(fight["id"])
 
@@ -92,7 +93,8 @@ def parse_fight_ids(fights_json: dict) -> dict:
 
 def parse_fights(fights_json: dict) -> dict:
     """ parse fights_json for fight details
-        return a "code" keyed dictionary of "fights"
+        return a report code keyed 
+        dictionary of fight information
 
         expected fights_json structure:
             "data": { "reportData": { 
@@ -101,8 +103,12 @@ def parse_fights(fights_json: dict) -> dict:
                     "fights": fights_list
                 }, ... 
             } }
-        expected output:
-            fights = { code: fights_list, ... }
+        expected output: code keyed dictionary of
+            report dictionaries (fights: list)
+            fight_reports = { 
+                code: {
+                    "fights": fights_list}, 
+                code: { ... }, ... }
     """
     # verify fights_json
     if not fights_json:
@@ -110,7 +116,7 @@ def parse_fights(fights_json: dict) -> dict:
 
     # input/output prep
     clean_json = clean_raw_json(fights_json)
-    fights = {}
+    fight_reports = {}
 
     # parse each report
     for report in safe_get(clean_json, ["reportData"], {}).values():
@@ -121,9 +127,10 @@ def parse_fights(fights_json: dict) -> dict:
         # add {code: fights_list} to fights
         fights_list = safe_get(report, ["fights"], None)
         if fights_list and isinstance(fights_list, list):
-            fights[code] = fights_list
+            fight_reports[code] = {
+                "fights": fights_list }
     
-    return fights
+    return fight_reports
 
 def parse_players(players_json: dict) -> dict:
     """ parse players_json for character appearances

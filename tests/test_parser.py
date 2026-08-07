@@ -89,11 +89,7 @@ def test_parse_unique_codes_success():
                             {"report": {"code": "r_missing"}},
                             {"report": {"code": "duplicate"}}
                         ]
-                    }
-                }
-            }
-        }
-    }
+                    } } } } }
     codes = parse_unique_codes(duplicate_data)
     assert codes == ["GuildRprt", "RecentRpt", "duplicate", "r_missing"]
 
@@ -110,11 +106,7 @@ def test_parse_unique_codes_defensive():
                             {"report": None},
                             {"report": {"code": "r_missing"}}
                         ]
-                    }
-                }
-            }
-        }
-    } 
+                    } } } } } 
     codes = parse_unique_codes(incomplete_data)
     assert codes == ["r_missing"]
 
@@ -132,13 +124,10 @@ def test_parse_fight_ids_success(mock_fights_json):
     """
     fight_ids = parse_fight_ids(mock_fights_json)
 
-    assert "multiple" in fight_ids
-    assert "single" in fight_ids
-    assert "missing" not in fight_ids
-
-    assert 1 in fight_ids["multiple"]
-    assert 2 in fight_ids["multiple"]
-    assert 10 in fight_ids["single"]
+    assert fight_ids == {
+        "multiple": [1, 2],
+        "single": [10]
+    }
 
 def test_parse_fight_ids_empty():
     """ Test: empty dict returned in response to empty input """
@@ -150,33 +139,25 @@ def test_parse_fight_ids_empty():
 # parse_fights
 # ============
 def test_parse_fights_success(mock_fights_json):
-    """ Test: successfully parse fights data from mock_fights_json 
-    
-        expected format from parse_fights(mock_fights_json):
-            { "multiple": [ { "id": 1, ... }, { "id": 2, ... } ], 
-                "single": [ { "id": 10, ... } ] }
-    """
-    sample_fights = {
-        1: {"id": 1, "name": "Gnarlroot", "kill": True, "friendlyPlayers": [ 1, 2, 3 ] },
-        2: {"id": 2, "name": "Igira", "kill": False, "friendlyPlayers": [1, 3, 4, 2] },
-        10: {"id": 10, "name": "Smolderon", "kill": True, "friendlyPlayers": [2, 4, 1, 3]}
-    }
-    sample_fields = ["id", "name", "kill", "friendlyPlayers"]
+    """ Test: successfully parse fights data from mock_fights_json """
 
     reports = parse_fights(mock_fights_json)
 
     assert "multiple" in reports
-    assert len(reports["multiple"]) == 2
     assert "single" in reports
-    assert len(reports["single"]) == 1
     assert "missing" not in reports
 
-    for report in reports.values():
-        for fight in report:
-            assert fight["id"] in sample_fights
-            sample_fight = sample_fights[fight["id"]]
-            for field in sample_fields:
-                assert fight[field] == sample_fight[field]
+    assert reports["multiple"] == {
+        "fights": [
+            {"id": 1, "name": "Gnarlroot", "kill": True, "friendlyPlayers": [ 1, 2, 3 ] },
+            {"id": 2, "name": "Igira", "kill": False, "friendlyPlayers": [1, 3, 4, 2] }
+        ]
+    }
+    assert reports["single"] == {
+        "fights": [
+            {"id": 10, "name": "Smolderon", "kill": True, "friendlyPlayers": [2, 4, 1, 3]}
+        ]
+    }
 
 def test_parse_fights_defensive():
     """ Test: skip missing/malformed fights_json elements """
@@ -202,30 +183,21 @@ def test_parse_players_success(mock_players_json):
         expected format from parse_players:
             { "code": [ player_role_info, ... ], "code": [ ... ], ... }
     """
-    sample_players = {
-        (1, "tanks"): {"id": 1, "name": "tank", "specs": ["tank_spec"], "role": "tanks"},
-        (2, "healers"): {"id": 2, "name": "healer", "specs": ["healer_spec"], "role": "healers"},
-        (3, "dps"): {"id": 3, "name": "dps", "specs": ["dps_spec"], "role": "dps"},
-        (4, "tanks"): {"id": 4, "name": "flex", "specs": ["tank_spec"], "role": "tanks"},
-        (4, "dps"): {"id": 4, "name": "flex", "specs": ["dps_spec"], "role": "dps"}
-    }
-    sample_fields = ["id", "name", "specs", "role"]
-
     player_reports = parse_players(mock_players_json)
 
     assert "flex_role" in player_reports
-    assert len(player_reports["flex_role"]) == 4
     assert "solo" in player_reports
-    assert len(player_reports["solo"]) == 1
     assert "private" not in player_reports
 
-    for report in player_reports.values():
-        for player in report:
-            key = (player["id"], player["role"])
-            assert key in sample_players
-            sample_player = sample_players[key]
-            for field in sample_fields:
-                assert player[field] == sample_player[field]
+    assert player_reports["flex_role"] == [
+        {"id": 1, "name": "tank", "specs": ["tank_spec"], "role": "tanks"},
+        {"id": 4, "name": "flex", "specs": ["tank_spec"], "role": "tanks"},
+        {"id": 2, "name": "healer", "specs": ["healer_spec"], "role": "healers"},
+        {"id": 4, "name": "flex", "specs": ["dps_spec"], "role": "dps"}
+    ]
+    assert player_reports["solo"] == [
+        {"id": 1, "name": "tank", "specs": ["tank_spec"], "role": "tanks"}
+    ]
 
 def test_parse_players_defensive():
     """ Test: handle missing/malformed players_json """
