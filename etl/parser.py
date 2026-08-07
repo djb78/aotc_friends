@@ -44,18 +44,16 @@ def parse_unique_codes(codes_json: dict) -> list:
     # retrieve codes
     # guild report codes (reports attributed to the guild)
     for report in safe_get(clean_json, ["reportData", "reports", "data"], []):
-        if isinstance(report, dict) and (code := report.get("code")):
+        if (code := safe_get(report, ["code"])):
             unique_codes.add(code)
     # recent report codes (last 100 reports uploaded by the anchor character)
     for report in safe_get(clean_json, ["characterData", "character", "recentReports", "data"], []):
-        if isinstance(report, dict) and (code := report.get("code")):
+        if (code := safe_get(report, ["code"])):
             unique_codes.add(code)
     # zoneRankings (boss kills involving the anchor character)
     for ranking in safe_get(clean_json, ["characterData", "character", "zoneRankings", "rankings"], []):
-        if isinstance(ranking, dict):
-            report = ranking.get("report")
-            if isinstance(report, dict) and (code := report.get("code")):
-                unique_codes.add(code)
+        if (code := safe_get(ranking, ["report", "code"])):
+            unique_codes.add(code)
 
     return list(sorted(unique_codes))
 
@@ -121,9 +119,9 @@ def parse_fights(fights_json: dict) -> dict:
     # parse each report
     for report in safe_get(clean_json, ["reportData"], {}).values():
         # retrieve report code
-        if not isinstance(report, dict) or not (code := report.get("code")):
+        code = safe_get(report, ["code"], None)
+        if not code:
             continue  
-
         # add {code: fights_list} to fights
         fights_list = safe_get(report, ["fights"], None)
         if fights_list and isinstance(fights_list, list):
@@ -144,7 +142,7 @@ def parse_players(players_json: dict) -> dict:
                     "playerDetails": { role: [ player_info, ... ], ...
                 }, ... 
             } }
-        expected output: players
+        expected output: code keyed dictionary of lists of player info
             { "code": [ player_role_info, ... ], "code": [ ... ], ... }
     """
     # verify players_json
@@ -162,7 +160,8 @@ def parse_players(players_json: dict) -> dict:
     # parse each report
     for report in report_data.values():
         # retreive report code
-        if not isinstance(report, dict) or not (code := report.get("code")):
+        code = safe_get(report, ["code"], None)
+        if not code:
             continue
 
         # retreive playerDetails (role dictionary)
