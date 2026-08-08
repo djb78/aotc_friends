@@ -60,34 +60,27 @@ def parse_unique_codes(codes_json: dict) -> list:
     return list(sorted(unique_codes))
 
 def parse_fight_ids(fights_json: dict) -> dict:
-    """ legacy wrapper
-        retrieve codes and associated fight ids for extract_players
-        refactored original parse_fight_ids into parse_fights for transform phase
-        return dict {"code": [id1, id2, id3, ...], ... }
-    """
-    # retrieve code keyed fights dictionary
-    fight_details = parse_fights(fights_json)
-    if not isinstance(fight_details, dict):
-        return {}
+    """ 
+	parse fights json for lists of fight ids
+	return a code keyed dictionary of
+	lists of fight ids
     
+    {"code": [id1, id2, id3, ...], ... }
+    """
+    data = prep_json(fights_json)
     fight_ids = {}
-    # for each code/report/log
-    for code, report in fight_details.items():
+
+    # for each report
+    for report in safe_get(data, ["reportData"], {}).values():
         fights = safe_get(report, ["fights"], None)
-        if not code or not isinstance(fights, list):
+        if not isinstance(fights, list):
             continue
 
-        report_ids = []
-        # make a list of fight ids in the report
-        for fight in fights:
-            if isinstance(fight, dict) and "id" in fight:
-                report_ids.append(fight["id"])
-
-        if not report_ids:
-            continue
-        # construct code keyed dictionary of id lists
-        fight_ids[code] = report_ids
-            
+        code = safe_get(report, ["code"], None)
+        ids = [f["id"] for f in fights if isinstance(f, dict) and "id" in f]
+        if code and ids:
+            fight_ids[code] = ids
+           
     return fight_ids
 
 # Transform parsers
