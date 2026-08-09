@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from services.file_io import load_config
+from services.config import load_config
 from services.client import WCLClient
 from etl.extract import Extractor
 from etl.transform import Transformer

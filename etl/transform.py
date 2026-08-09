@@ -1,7 +1,7 @@
 from etl.constants import CODES_CACHE_NAME
 from etl.models import Report
 from etl.parser import parse_unique_codes
-from services.file_io import load_cache
+from services.cache import load_cache
 
 class Transformer:
     def __init__(self, config: dict):
