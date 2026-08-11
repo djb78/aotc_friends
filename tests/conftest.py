@@ -8,7 +8,7 @@ def valid_config():
         "guild_id": 123456,
         "anchor": {
             "name": "Stiff",
-            "server": "area-52",
+            "server": "Area-52",
             "region": "US"
         }
     }

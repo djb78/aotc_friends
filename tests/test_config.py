@@ -2,8 +2,13 @@ import json
 import pytest
 import copy
 from services.config import load_config
+from pathlib import Path
+from etl.constants import RAIDS
 
 def test_load_config_success(tmp_path, valid_config):
+        """ test: verify the config file exists and
+            contains the fields required for core functionality
+        """
         # temporary config file
         config_data = valid_config
         config_file = tmp_path / "config.json"
@@ -13,9 +18,14 @@ def test_load_config_success(tmp_path, valid_config):
         # Run the function
         config = load_config(path=str(config_file))
 
-        # Assertions
+        # required fields
         assert config["guild_id"] == 123456
         assert config["zone_id"] == 35
+        assert config["anchor"] == { "name": "Stiff", "server": "Area-52", "region": "US" }
+        # derived fields
+        assert config["raid"] == RAIDS[config["zone_id"]]
+        assert config["cache_path_r"] == Path(".cache") / "123456" / "35"
+
 
 def test_load_config_missing_file():
      with pytest.raises(FileNotFoundError):
