@@ -135,13 +135,13 @@ def parse_players(players_json: dict) -> dict:
                 }, ... 
             } }
 
-    { "code": [ {player_role_info} ] }
+    { "code": { "player_id": [ {spec_info}, ... ] }
     """
     # verify players_json
     data = prep_json(players_json)
-    player_reports = {}
+    player_specs = {}    # code { player_id: [{spec_info}, ], },
 
-    # for each report/log
+    # REPORT {
     for report in safe_get(data, ["reportData"], {}).values():
         # retreive playerDetails (role dictionary)
         # player_details = { "tanks": [], "healers": [], "dps": [] }
@@ -149,19 +149,30 @@ def parse_players(players_json: dict) -> dict:
         code = safe_get(report, ["code"], None)
         if not code or not isinstance(player_details, dict):
             continue
-        if code not in player_reports:
-            player_reports[code] = []
-
-        # for each role
+        if code not in player_specs:
+            player_specs[code] = {}  # player_id: [{spec_info}, ], 
+        
+        # PLAYER [
         for role, player_list in player_details.items():
             if not isinstance(player_list, list):
                 continue
-            # retrieve player_info dictionaries from list
+            # player_info -> spec_info
             for player_info in player_list:
-                if isinstance(player_info, dict):
-                    # inject role and add to final list
-                    player = player_info.copy()
-                    player["role"] = role
-                    player_reports[code].append(player)
-    return player_reports
+                if not isinstance(player_info, dict):
+                    continue
+                # inject role
+                spec_info = player_info.copy()
+                spec_info["role"] = role
+
+                # update player spec list
+                player_id = spec_info.pop("id")
+                if player_id not in player_specs[code]:
+                    player_specs[code][player_id] = []  # {spec_info},
+
+                player = player_specs[code][player_id]
+                if not isinstance(player, list):
+                    player = []
+                player.append(spec_info)
+
+    return player_specs
  

@@ -185,7 +185,7 @@ def test_parse_players_success(mock_players_json):
     """ Test: parse playerDetails, verify role injection, exclude private/missing logs
 
         expected format from parse_players:
-            { "code": [ player_role_info, ... ], "code": [ ... ], ... }
+            { "code": { "id": [ player_role_info, ... ], "id": [ ... ], ... }
     """
     player_reports = parse_players(mock_players_json)
 
@@ -193,15 +193,15 @@ def test_parse_players_success(mock_players_json):
     assert "solo" in player_reports
     assert "private" not in player_reports
 
-    assert player_reports["flex_role"] == [
-        {"id": 1, "name": "tank", "specs": ["tank_spec"], "role": "tanks"},
-        {"id": 4, "name": "flex", "specs": ["tank_spec"], "role": "tanks"},
-        {"id": 2, "name": "healer", "specs": ["healer_spec"], "role": "healers"},
-        {"id": 4, "name": "flex", "specs": ["dps_spec"], "role": "dps"}
-    ]
-    assert player_reports["solo"] == [
-        {"id": 1, "name": "tank", "specs": ["tank_spec"], "role": "tanks"}
-    ]
+    assert player_reports["flex_role"] == {
+        1: [ {"name": "tank", "specs": ["tank_spec"], "role": "tanks"} ],
+        4: [ {"name": "flex", "specs": ["tank_spec"], "role": "tanks"},
+             {"name": "flex", "specs": ["dps_spec"], "role": "dps"} ],
+        2: [ {"name": "healer", "specs": ["healer_spec"], "role": "healers"} ]
+    }
+    assert player_reports["solo"] == {
+        1: [{"name": "tank", "specs": ["tank_spec"], "role": "tanks"}]
+    }
 
 def test_parse_players_defensive():
     """ Test: handle missing/malformed players_json """
