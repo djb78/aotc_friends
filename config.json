@@ -1,9 +1,15 @@
 {
+    "guild_name": "The Secret Duck Society",
     "guild_id": 780772,
     "zone_id":  50,
     "anchor": {
         "name": "Stiff",
         "server": "Area-52",
         "region": "US"
+    },
+    "schedule": {
+        "days": ["tuesday", "saturday"],
+        "start_est": "20:00",
+        "end_est": "22:00"
     }
 }
