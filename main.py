@@ -14,6 +14,7 @@ def main():
     e.extract_all()
 
     t = Transformer(config)
+    t.transform_all()
 
 
 if __name__ == "__main__":
