@@ -131,22 +131,28 @@ def parse_players(players_json: dict) -> dict:
             "data": { "reportData": { 
                 "ch0_r0: { 
                     "code": code, 
-                    "playerDetails": { role: [ {player_info}, ... ], ...
+                    "playerDetails": {
+                        "data": { 
+                            "playerDetails": { 
+                                role: [ {player_info}, ... ], ...
                 }, ... 
             } }
 
+    output:
     { "code": { "player_id": [ {spec_info}, ... ] }
     """
     # verify players_json
     data = prep_json(players_json)
     player_specs = {}    # code { player_id: [{spec_info}, ], },
 
-    # REPORT {
+    # reportData: { "alias": {"code": code, "playerDetails": {"data": {"playerDetails": {} }}}}
     for report in safe_get(data, ["reportData"], {}).values():
-        # retreive playerDetails (role dictionary)
-        # player_details = { "tanks": [], "healers": [], "dps": [] }
-        player_details = safe_get(report, ["playerDetails"])
+        # { "code": code, "playerDetails": {"data": {"playerDetails": {} }}}
         code = safe_get(report, ["code"], None)
+
+        # retreive playerDetails (role dictionary)
+        player_details = safe_get(report, ["playerDetails", "data", "playerDetails"])
+        # { "tanks": [{spec_info}], "healers": [{spec_info}], "dps": [{spec_info}] }
         if not code or not isinstance(player_details, dict):
             continue
         if code not in player_specs:

@@ -1,64 +1,6 @@
 import pytest
 from etl.parser import safe_get, parse_unique_codes, parse_fight_ids, parse_fights, parse_players
 
-@pytest.fixture
-def mock_fights_json():
-    """ sample fights_json 
-        multiple, single and empty report variations
-    """
-    return {
-        "data": {
-            "reportData": {
-                "ch0_r0": {
-                    "code": "multiple",
-                    "startTime": 100,
-                    "fights": [
-                        {"id": 1, "name": "Gnarlroot", "kill": True, "friendlyPlayers": [1, 2, 3]},
-                        {"id": 2, "name": "Igira", "kill": False, "friendlyPlayers": [1, 3, 4, 2]}
-                    ]
-                },
-                "ch0_r1": {
-                    "code": "single",
-                    "startTime": 200,
-                    "fights": [
-                        {"id": 10, "name": "Smolderon", "kill": True, "friendlyPlayers": [2, 4, 1, 3]}
-                    ]
-                },
-                "ch0_r2": {
-                    "code": "missing",
-                    "fights": []
-    } } } }
-
-@pytest.fixture
-def mock_players_json():
-    """ sample players_json
-        solo, group with role-swapping, private log variants
-    """
-    return { "data": { "reportData": {
-                "ch0_r0": {
-                    "code": "flex_role",
-                    "playerDetails": {
-                        "tanks": [
-                            {"id": 1, "name": "tank", "specs": ["tank_spec"]},
-                            {"id": 4, "name": "flex", "specs": ["tank_spec"]} ], 
-                        "healers": [
-                            {"id": 2, "name": "healer", "specs": ["healer_spec"]} ],
-                        "dps": [ 
-                            {"id": 4, "name": "flex", "specs": ["dps_spec"]} ]
-                    }
-                },
-                "ch0_r1": {
-                    "code": "solo",
-                    "playerDetails": {
-                        "tanks": [ {"id": 1, "name": "tank", "specs": ["tank_spec"]} ]
-                    } 
-                },
-                "ch0_r2": {
-                    "code": "private",
-                    "playerDetails": None
-                } 
-    } } }
-
 def test_safe_get():
     """ Test: recursive dictionary navigation and safe defaults """
     data = {"a": {"b": {"c": 43}}}
@@ -66,6 +8,11 @@ def test_safe_get():
     assert safe_get(data, ["a", "x", "c"]) is None
     assert safe_get(data, ["a", "b", "c", "d"]) is None
 
+# codes
+# ==============================================
+
+# parse_unique_codes
+# ==================
 def test_parse_unique_codes_success():
     """ Test: parse unique codes from guild, recent and ranking data """
     duplicate_data = {
@@ -117,6 +64,35 @@ def test_parse_unique_codes_empty():
     assert parse_unique_codes({}) == []
     assert parse_unique_codes(None) == []
 
+# fights
+# ==============================================
+@pytest.fixture
+def mock_fights_json():
+    """ sample fights_json 
+        multiple, single and empty report variations
+    """
+    return {
+        "data": {
+            "reportData": {
+                "ch0_r0": {
+                    "code": "multiple",
+                    "startTime": 100,
+                    "fights": [
+                        {"id": 1, "name": "Gnarlroot", "kill": True, "friendlyPlayers": [1, 2, 3]},
+                        {"id": 2, "name": "Igira", "kill": False, "friendlyPlayers": [1, 3, 4, 2]}
+                    ]
+                },
+                "ch0_r1": {
+                    "code": "single",
+                    "startTime": 200,
+                    "fights": [
+                        {"id": 10, "name": "Smolderon", "kill": True, "friendlyPlayers": [2, 4, 1, 3]}
+                    ]
+                },
+                "ch0_r2": {
+                    "code": "missing",
+                    "fights": []
+    } } } }
 
 # parse_fight_ids
 # ===============
@@ -178,9 +154,40 @@ def test_parse_fights_defensive():
         assert isinstance(clean_dict, dict)
         assert len(clean_dict) == 0
 
-
-# parse_players 
+# players
 # ==============================================
+@pytest.fixture
+def mock_players_json():
+    """ sample players_json
+        solo, group with role-swapping, private log variants
+    """
+    return { "data": { "reportData": {
+                "ch0_r0": {
+                    "code": "flex_role",
+                    "playerDetails": { "data": { "playerDetails": {
+                        "tanks": [
+                            {"id": 1, "name": "tank", "specs": ["tank_spec"]},
+                            {"id": 4, "name": "flex", "specs": ["tank_spec"]} ], 
+                        "healers": [
+                            {"id": 2, "name": "healer", "specs": ["healer_spec"]} ],
+                        "dps": [ 
+                            {"id": 4, "name": "flex", "specs": ["dps_spec"]} ]
+                    } } }
+                },
+                "ch0_r1": {
+                    "code": "solo",
+                    "playerDetails": { "data": { "playerDetails": {
+                        "tanks": [ {"id": 1, "name": "tank", "specs": ["tank_spec"]} ]
+                    } } }
+                },
+                "ch0_r2": {
+                    "code": "private",
+                    "playerDetails": None
+                } 
+    } } }
+
+# parse_players
+# =============
 def test_parse_players_success(mock_players_json):
     """ Test: parse playerDetails, verify role injection, exclude private/missing logs
 
