@@ -24,8 +24,11 @@ class Extractor:
     def extract_all(self):
         """ coordinator for extraction pipeline """
         print("starting extraction phase")
+        print(" extracting codes...")
         self.extract_codes()
+        print(" extracting fight data...")
         self.extract_fights()
+        print(" extracting player data...")
         self.extract_players()
         print("extraction phase complete")
 
@@ -49,6 +52,7 @@ class Extractor:
         """
         # check for existing cache
         if load_cache(self.config, CODES_CACHE_NAME):
+            print(f"    {CODES_CACHE_NAME}.json exists, extraction aborted.")
             return 
 
         # use config data to construct GraphQL query
@@ -72,8 +76,9 @@ class Extractor:
         
         query += "}"	
 
-        # query API and cache response       
+        # query API and cache response
         self.extract_query(query, CODES_CACHE_NAME)
+        print(f"    extraction complete, saved to {CODES_CACHE_NAME}.json")
 
     def extract_fights(self):
         """ uses codes from extract_codes cache
@@ -98,6 +103,7 @@ class Extractor:
         """
         # check for existing fight info cache
         if load_cache(self.config, FIGHTS_CACHE_NAME):
+            print(f"    {FIGHTS_CACHE_NAME}.json exists, extraction aborted.")
             return
 
         # load the cache created by extract_codes
@@ -133,6 +139,7 @@ class Extractor:
         # cache merged chunk responses
         merged_response = {"data": {"reportData": chunk_responses}}
         save_cache(self.config, FIGHTS_CACHE_NAME, merged_response)
+        print(f"    extraction complete, saved to {FIGHTS_CACHE_NAME}.json")
 
 
     def extract_players(self):
@@ -149,6 +156,7 @@ class Extractor:
         """
         # check for existing cache
         if load_cache(self.config, PLAYERS_CACHE_NAME):
+            print(f"    {PLAYERS_CACHE_NAME}.json exists, extraction aborted.")
             return
 
         # losd the cache created by extract_fights
@@ -186,3 +194,4 @@ class Extractor:
         # cache merged chunk responses
         merged_response = {"data": {"reportData": chunk_responses}}
         save_cache(self.config, PLAYERS_CACHE_NAME, merged_response)
+        print(f"    extraction complete, saved to {PLAYERS_CACHE_NAME}")
