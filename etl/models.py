@@ -7,3 +7,13 @@ class Pull:
         self.kill = False
         self.roster = []    # list of guids
 
+class Friend:
+    def __init__(self, guid: int):
+        self.guid = guid
+        self.name: str = ""
+        self.server: str = ""
+        self.region: str = ""
+        self.type: str = ""         # class
+        self.specs = {}             # { spec: { "role": role, "counts": { code: count }
+        self.sightings = 0
+        self.main = guid            # default to self main

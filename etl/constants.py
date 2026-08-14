@@ -3,6 +3,13 @@ CODES_CACHE_NAME = "codes"
 FIGHTS_CACHE_NAME = "fights"
 PLAYERS_CACHE_NAME = "players"
 
+# Role Names
+ROLE_NAMES = {
+    "tanks": "tank",
+    "healers": "healer",
+    "dps": "dps"
+}
+
 # Raid Tier info
 RAIDS = {
     50: {"name": "Sporefall", 

@@ -1,14 +1,15 @@
 from services.config import on_schedule
 from services.cache import load_cache
-from etl.models import Pull
-from etl.constants import FIGHTS_CACHE_NAME, PLAYERS_CACHE_NAME
+from etl.constants import FIGHTS_CACHE_NAME, PLAYERS_CACHE_NAME, ROLE_NAMES
 from etl.parser import safe_get, parse_fights, parse_players
+from etl.models import Pull, Friend
 
 class Transformer:
     def __init__(self, config: dict):
         self.config = config
         self.log_times = {}  # { code: time }
         self.pulls = []      # [ Pulls ]
+        self.friends = {}    # { guid: Friend }
 
     def transform_all(self):
         """ coordinator for preping fights and characters for the load phase
@@ -16,6 +17,7 @@ class Transformer:
             exclude logs after the AOTC kill
             populate pulls and characters dictionaries
 
+            parse_players() = { "code": [ {player_role_info} ] }
         """
         print("starting transform phase")
 
@@ -39,6 +41,7 @@ class Transformer:
         if len(self.pulls) > 0:
             pull = self.pulls[0]
             print(f"    - sample roster: {pull.roster}")
+        print(f"    - friends:  {len(self.friends)}")
 
         print("transform phase complete")
 
@@ -142,10 +145,60 @@ class Transformer:
                 for sighting in friend_sightings:
                     # { "guid", "name", "role", "specs"[ {"spec", "count"} ], ... }
                     # update self.friends and get guid
-                    guid = sighting.get("guid")
-                    if guid and guid not in guid_roster:
+                    guid = self.friend_spotted(pull.log, sighting)
+                    if guid:
                         # add guid to new list
                         guid_roster.append(guid)
             # update pull roster to list of guids
             pull.roster = guid_roster
 
+    def friend_spotted(self, code: str, sighting: dict) -> int:
+        """ Add new friend and/or spec info to self.friends
+            return friend guid or None if inputs are invalid
+            invalid spec info is skipped
+            
+            sighting = {"guid", "name", ..., "role", "specs": [ {"spec", "count"} ]}
+        """
+        if not isinstance(sighting, dict) or code not in self.log_times:
+            return None
+        guid_seen = sighting.get("guid")
+        if not guid_seen: return None
+
+        # ensure friend exists
+        if guid_seen not in self.friends:
+            friend_seen = Friend(guid_seen)
+            friend_seen.name = sighting.get("name")
+            friend_seen.server = sighting.get("server")
+            friend_seen.region = sighting.get("region")
+            friend_seen.type = sighting.get("type")
+            friend_seen.sightings = 0
+            friend_seen.specs = {}   # { spec: { "role": role, "counts": { code: count }
+            self.friends[guid_seen] = friend_seen
+        friend = self.friends[guid_seen]
+
+        # update existing friend
+        specs_seen = sighting.get("specs", [])   # [ {"spec", "count"} ]
+        if not isinstance(specs_seen, list):
+            # guid still spotted and self.friends[guid] exists, 
+            # increment sightings and return guid
+            specs_seen = [] 
+
+        # ensure specs and log_counts exist
+        for seen_spec in specs_seen:  # {"spec", "count"}
+            if not isinstance(seen_spec, dict) or "spec" not in seen_spec:
+                continue
+            # ensure spec exists
+            spec_name = seen_spec.get("spec")
+            if spec_name not in friend.specs:
+                role_seen = sighting.get("role")
+                role_name = ROLE_NAMES.get(role_seen, role_seen)
+                friend.specs[spec_name] = { "role": role_name, "log_counts": {}}
+            friend_spec = friend.specs[spec_name]   # { "role": role, "log_counts": { code: count }
+
+            # add count to log_counts (should always be the same)
+            spec_count = seen_spec.get("count")
+            if code not in friend_spec["log_counts"]:
+                friend_spec["log_counts"][code] = spec_count
+
+        friend.sightings += 1
+        return friend.guid
