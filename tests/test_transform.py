@@ -2,16 +2,32 @@ import pytest
 from unittest.mock import MagicMock, patch
 from etl.transform import Transformer
 
+class MockPull:
+    def __init__(self, log):
+        self.log = log
+        self.roster = []
+        self.boss = {"id": 666}
+        self.kill = False
 
+@pytest.fixture
+def valid_log_times():
+    """ valid log times for tests """
+    return {
+        "log01": 1000000,
+        "log02": 2000000,
+        "log03": 3000000
+    }
 
 def test_transform_all(valid_config):
     t = Transformer(valid_config)
 
     t.transform_fights_pulls = MagicMock()
+    t.filter_aotc_prog = MagicMock()
 
     t.transform_all()
 
     t.transform_fights_pulls.assert_called_once()
+    t.filter_aotc_prog.assert_called_once()
 
 
 # transform_fights_pulls
@@ -92,3 +108,49 @@ def test_transform_fights_pulls_schedule(mock_load_cache, mock_parse_fights, moc
 
     assert len(t.pulls) == 1
     assert t.pulls[0].log == "log01"
+
+# filter_aotc_prog
+def test_filter_aotc_prog_success(valid_config, valid_log_times):
+    t = Transformer(valid_config)
+    t.log_times = valid_log_times
+    t.config["raid"] = {"final_boss": {"id": 666}}
+    pulls = {
+    "prog01": MockPull("log01"),
+    "prog02": MockPull("log01"),
+    "prog03": MockPull("log02"),
+    "kill01": MockPull("log02"),
+    "wipe01": MockPull("log03"),
+    "wipe02": MockPull("log03"),
+    "kill02": MockPull("log03") }
+    pulls["kill01"].kill = True
+    pulls["kill02"].kill = True
+    t.pulls.extend(pulls.values())
+
+    t.filter_aotc_prog()
+
+    prog = ["prog01", "prog02", "prog03", "kill01"]
+    farm = ["wipe01", "wipe02", "kill02"]
+    prog_pulls = []
+    for pull in prog:
+        assert pulls[pull].log in t.log_times
+        prog_pulls.append(pulls[pull])
+    for pull in farm:
+        assert pulls[pull].log not in t.log_times
+    assert t.pulls == prog_pulls
+
+def test_filter_aotc_prog_no_kill(valid_config, valid_log_times):
+    t = Transformer(valid_config)
+    t.log_times = valid_log_times
+    t.config["raid"] = {"final_boss": {"id": 666}}
+    pulls = {
+    "prog01": MockPull("log01"),
+    "prog02": MockPull("log01"),
+    "prog03": MockPull("log02")   }
+    for pull in pulls.values():
+        t.pulls.append(pull)
+
+    t.filter_aotc_prog()
+
+    assert len(t.pulls) == 3
+    assert len(t.log_times) == 3
+

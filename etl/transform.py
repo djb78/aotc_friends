@@ -1,8 +1,8 @@
 from services.config import on_schedule
 from services.cache import load_cache
 from etl.constants import FIGHTS_CACHE_NAME
-from etl.parser import parse_fights
 from etl.models import Pull
+from etl.parser import safe_get, parse_fights
 
 class Transformer:
     def __init__(self, config: dict):
@@ -18,11 +18,20 @@ class Transformer:
 
         """
         print("starting transform phase")
+
         print("- getting scheduled logs and building pull list")
         self.transform_fights_pulls()
         print(f"    - logs:     {len(self.log_times)}")
         print(f"    - pulls:    {len(self.pulls)}")
+
         print("- removing logs after aotc kill cutoff")
+        self.filter_aotc_prog()
+        print(f"    - logs:     {len(self.log_times)}")
+        print(f"    - pulls:    {len(self.pulls)}")
+        if len(self.pulls) > 0:
+            pull = self.pulls[0]
+            print(f"    - sample roster: {pull.roster}")
+
         print("- building friend dictionary")
         print("transform phase complete")
 
@@ -58,3 +67,35 @@ class Transformer:
                 pull.boss["name"] = fight["name"]
                 pull.roster = fight["friendlyPlayers"]
                 self.pulls.append(pull)
+
+    def filter_aotc_prog(self):
+        """ determine final boss kill log
+            filter out subseqent logs/pulls
+        """
+        # get boss for kill cutoff
+        final_boss_id = safe_get(self.config, ["raid", "final_boss", "id"], None)
+        if not final_boss_id:
+            return
+        
+        # find the first kill (cutoff)
+        cutoff = None
+        for pull in self.pulls:
+            if pull.boss["id"] != final_boss_id or not pull.kill:
+                continue
+            if (not cutoff or 
+                self.log_times[pull.log] < self.log_times[cutoff]):
+                    cutoff = pull.log
+        if not cutoff:
+            return
+
+        # reconstruct log_times and pulls to reflect cutoff
+        cutoff_time = self.log_times[cutoff]
+        self.log_times = {
+            code: time for code, time in self.log_times.items()
+            if time <= cutoff_time
+        }
+        self.pulls = [
+            pull for pull in self.pulls
+            if pull.log in self.log_times
+        ]
+
