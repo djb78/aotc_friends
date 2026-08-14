@@ -23,11 +23,13 @@ def test_transform_all(valid_config):
 
     t.transform_fights_pulls = MagicMock()
     t.filter_aotc_prog = MagicMock()
+    t.transform_roster = MagicMock()
 
     t.transform_all()
 
     t.transform_fights_pulls.assert_called_once()
     t.filter_aotc_prog.assert_called_once()
+    t.transform_roster.assert_called_once()
 
 
 # transform_fights_pulls
@@ -153,4 +155,42 @@ def test_filter_aotc_prog_no_kill(valid_config, valid_log_times):
 
     assert len(t.pulls) == 3
     assert len(t.log_times) == 3
+
+# transform_roster
+@patch("etl.transform.parse_players")
+@patch("etl.transform.load_cache")
+def test_transform_roster_success(mock_load_cache, mock_parse_players, valid_config):
+    mock_parse_players.return_value = {
+        "log01": {
+            10: [{"guid": 5003, "name": "Nightroud"}],
+            20: [{"guid": 5005, "name": "Joefutofu"}]
+        }
+    }
+
+    t = Transformer(valid_config)
+
+    pull01 = MockPull("log01")
+    pull01.roster = [10, 20]
+    t.pulls = [pull01]
+    t.transform_roster()
+
+    assert pull01.roster == [5003, 5005]
+
+@patch("etl.transform.parse_players")
+@patch("etl.transform.load_cache")
+def test_transform_roster_missing_guid(mock_load_cache, mock_parse_players, valid_config):
+    mock_parse_players.return_value = {
+        "log01": {
+            10: [{"guid": None}],
+            20: [{"guid": 5005}]
+        }
+    }
+    t = Transformer(valid_config)
+
+    pull01 = MockPull("log01")
+    pull01.roster = [10, 20]
+    t.pulls = [pull01]
+    t.transform_roster()
+
+    assert pull01.roster == [5005]
 

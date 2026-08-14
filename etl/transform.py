@@ -1,8 +1,8 @@
 from services.config import on_schedule
 from services.cache import load_cache
-from etl.constants import FIGHTS_CACHE_NAME
 from etl.models import Pull
-from etl.parser import safe_get, parse_fights
+from etl.constants import FIGHTS_CACHE_NAME, PLAYERS_CACHE_NAME
+from etl.parser import safe_get, parse_fights, parse_players
 
 class Transformer:
     def __init__(self, config: dict):
@@ -33,6 +33,13 @@ class Transformer:
             print(f"    - sample roster: {pull.roster}")
 
         print("- building friend dictionary")
+        self.transform_roster()
+        print(f"    - logs:     {len(self.log_times)}")
+        print(f"    - pulls:    {len(self.pulls)}")
+        if len(self.pulls) > 0:
+            pull = self.pulls[0]
+            print(f"    - sample roster: {pull.roster}")
+
         print("transform phase complete")
 
     def transform_fights_pulls(self):
@@ -98,4 +105,47 @@ class Transformer:
             pull for pull in self.pulls
             if pull.log in self.log_times
         ]
+
+    def transform_roster(self):
+        """ use the base roster of log specific player ids to
+            create a guid roster to replace it.
+
+            acquire guid from self.friend_spotted to 
+            populate/update self.friends
+
+            report - log_players:        { code: 
+            player_ids:                  { id: 
+            fights - friend_sightings:   [ 
+            sighting:                    {"guid", "role", "specs", ...
+        """
+        # { "code": { "id": [ {player_role_info} ] }
+        players_json = load_cache(self.config, PLAYERS_CACHE_NAME)
+        log_players = parse_players(players_json)
+
+        for pull in self.pulls:
+            # use list of log specific player ids
+            player_ids = pull.roster
+            if not isinstance(player_ids, list):
+                continue
+            # create list of unique guids
+            guid_roster = []
+            missing_id_lists = 0
+            for id in player_ids:
+                # { code: { id: 
+                # friend_sightings = safe_get(log_players, [pull.log, id], None)
+                log_data = log_players.get(pull.log, [])
+                friend_sightings = log_data.get(id, log_data.get(str(id), None))
+                if not isinstance(friend_sightings, list):
+                    missing_id_lists += 1
+                    continue
+                # [
+                for sighting in friend_sightings:
+                    # { "guid", "name", "role", "specs"[ {"spec", "count"} ], ... }
+                    # update self.friends and get guid
+                    guid = sighting.get("guid")
+                    if guid and guid not in guid_roster:
+                        # add guid to new list
+                        guid_roster.append(guid)
+            # update pull roster to list of guids
+            pull.roster = guid_roster
 
