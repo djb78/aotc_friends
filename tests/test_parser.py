@@ -77,6 +77,7 @@ def mock_fights_json():
                 "ch0_r0": {
                     "code": "multiple",
                     "startTime": 100,
+                    "zone": {"id": 35},
                     "fights": [
                         {"id": 1, "name": "Gnarlroot", "kill": True, "friendlyPlayers": [1, 2, 3]},
                         {"id": 2, "name": "Igira", "kill": False, "friendlyPlayers": [1, 3, 4, 2]}
@@ -85,12 +86,14 @@ def mock_fights_json():
                 "ch0_r1": {
                     "code": "single",
                     "startTime": 200,
+                    "zone": {"id": 35},
                     "fights": [
                         {"id": 10, "name": "Smolderon", "kill": True, "friendlyPlayers": [2, 4, 1, 3]}
                     ]
                 },
                 "ch0_r2": {
                     "code": "missing",
+                    "zone": {"id": 35},
                     "fights": []
     } } } }
 
@@ -125,8 +128,10 @@ def test_parse_fights_success(mock_fights_json):
     assert "single" in reports
     assert "missing" not in reports
 
+    # verify output dictonary structure
     assert reports["multiple"] == {
         "time": 100,
+        "zone_id": 35,
         "fights": [
             {"id": 1, "name": "Gnarlroot", "kill": True, "friendlyPlayers": [ 1, 2, 3 ] },
             {"id": 2, "name": "Igira", "kill": False, "friendlyPlayers": [1, 3, 4, 2] }
@@ -134,6 +139,7 @@ def test_parse_fights_success(mock_fights_json):
     }
     assert reports["single"] == {
         "time": 200,
+        "zone_id": 35,
         "fights": [
             {"id": 10, "name": "Smolderon", "kill": True, "friendlyPlayers": [2, 4, 1, 3]}
         ]
@@ -141,18 +147,31 @@ def test_parse_fights_success(mock_fights_json):
 
 def test_parse_fights_defensive():
     """ Test: skip missing/malformed fights_json elements """
-    missing_samples = [
-        None,
-        {},
-        {"data": None},
-        {"data": { "reportData": {"ch0_r0": {"code": "no_fights"}}}},
-        {"data": { "reportData": {"ch0_r0": "no_dict"}}}
+    missing_parents = [ # indicators of missing or corrupted input
+        None,                           # nothing
+        {},                             # no data
+        {"data": None},                 # no reportData
+        {"data": { "reportData": {} }}  # no reports
     ]
 
-    for sample in missing_samples:
-        clean_dict = parse_fights(sample)
+    bad_reports = [
+        # {"code": "112", "fights": [{}]},  # currently adds to fight_logs
+        {"code": "112", "fights": []},
+        {"code": "112", "fights": "not_list"},
+        {"code": None},
+        {"not_code": "some_value"},
+        {},
+        None
+    ]
+    # mixed good and bad reports, only output good
+    goodrpt = {"code": "011", "fights": [{"good_data"}]}
+    fights_json = {"data": { "reportData": {"goodrpt": goodrpt} }}
+    for badrpt in bad_reports:
+        fights_json["data"]["reportData"]["badrpt"] = badrpt
+        clean_dict = parse_fights(fights_json)
         assert isinstance(clean_dict, dict)
-        assert len(clean_dict) == 0
+        assert len(clean_dict) == 1
+    # no good reports, raise a valueError, no data for the next phase
 
 # players
 # ==============================================

@@ -89,6 +89,7 @@ class Extractor:
                     ch0_r0: report(code: <code>) {
                         code
                         startTime
+                        zone { id }
                         fights(difficulty: 4) { <fight_data> }
                     },
                     ch0_r1: report(code: <code>) { ... }, ... 
@@ -100,6 +101,7 @@ class Extractor:
             name
             kill
             friendlyPlayers
+            difficulty
         """
         # check for existing fight info cache
         if load_cache(self.config, FIGHTS_CACHE_NAME):
@@ -125,6 +127,7 @@ class Extractor:
             for j, code in enumerate(chunk):
                 query += f"ch{i}_r{j}: report(code: \"{code}\") {{ "
                 query += "code "
+                query += "zone { id }"
                 query += "startTime "
                 query += f"fights(difficulty: 4) {{ {fight_data} }} "
                 query += "} "

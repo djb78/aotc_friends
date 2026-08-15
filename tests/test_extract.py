@@ -141,8 +141,9 @@ def test_extract_fights_success(mock_load_cache, mock_save_cache, mock_client, v
 
     assert mock_client.query.called
     called_query = mock_client.query.call_args[0][0]
-    assert "ch0_r0" in called_query
-    assert "fights(difficulty: 4)" in called_query
+    checks = ["ch0_r0", "fights(difficulty: 4)", "code", "startTime", "zone"]
+    for check in checks:
+        assert check in called_query
 
     mock_save_cache.assert_called_once_with(
         valid_config,

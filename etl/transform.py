@@ -51,31 +51,45 @@ class Transformer:
             populate self.pulls with info from fights 
 
             log_fights { code:
-            log { "time": , "fights": [
+            log { "time": , "zone", "fights": [
             fight {"id": , "kill": , "friendlyPlayers", ... }
         """
         # get dictionary of fight logs
         # log_fights = { log_code: log }
         fights_json = load_cache(self.config, FIGHTS_CACHE_NAME)
-        log_fights = parse_fights(fights_json)
+        fight_logs = parse_fights(fights_json)
+        if not fight_logs or not isinstance(fight_logs, dict):
+            raise ValueError(f"missing fight data, parser returned {fight_logs}")
 
-        schedule = self.config.get("schedule", None)
-        for log_code, log  in log_fights.items():
-            # log = { "time": time, "fights": [{fights_info}] } }
-            # filter for logs that coincide with schedule
+        config_zone = safe_get(self.config, ["zone_id"])
+        schedule = safe_get(self.config, ["schedule"])
+        for code, log  in fight_logs.items():
+            # log = { "time": time, "zone_id": id, "fights": [{fights_info}] } }
+
+            # raid filter
+            log_zone = safe_get(log, ["zone_id"])
+            if log_zone != config_zone:
+                continue
+
+            # schedule filter
             if schedule and not on_schedule(log["time"], schedule):
                 continue
-            # store timestamp
-            self.log_times[log_code] = log["time"]
+
+            # store filtered timestamp
+            self.log_times[code] = log["time"]
 
             # use fights dictionary to create Pull objects
             # [ { "id":, "kill":, ... } ]
             for fight in log["fights"]:
-                pull = Pull(log_code, fight["id"])
+                # difficulty filter
+                if fight["difficulty"] != 4:
+                    continue
+                pull = Pull(code, fight["id"])
                 pull.kill = fight["kill"]
                 pull.boss["id"] = fight["encounterID"]
                 pull.boss["name"] = fight["name"]
                 pull.roster = fight["friendlyPlayers"]
+
                 self.pulls.append(pull)
 
     def filter_aotc_prog(self):

@@ -92,34 +92,46 @@ def parse_fights(fights_json: dict) -> dict:
 	report info, including startTime and a
 	list of fight info dictionaries
 
-        expected fights_json structure:
-            "data": { "reportData": { 
-                "ch0_r0: { 
-                    "code": code, 
-                    "startTime": time,
-                    "fights": [fights_info]
-                }, ... 
-            } }
-        
-    { code: { "time": time, "fights": [fights_info] } }
+    input: response from extract_fights query
+        "data": { "reportData": { 
+            "alias": { 
+                "code": code, 
+                "startTime": time, 
+                "zone": { "id": id } 
+                "fights": [fights_info]
+    output: { code: { "time": time, "zone_id": id, "fights": [fights_info] } }
+
+    extract_fights -> parse_fights -> transform_fights_pulls
     """
     # verify fights_json
     data = prep_json(fights_json)
-    fight_reports = {}
-
+    fight_logs = {}
+    
+    reports = safe_get(data, ["reportData"], {})
+    if not reports or not isinstance(reports, dict):
+        # not a dictionary or empty = no cached data
+        raise ValueError(f'missing fight data: "reportData": {reports}')
     # for each report
-    for report in safe_get(data, ["reportData"], {}).values():
+    for report in reports.values():
+        if not report or not isinstance(report, dict):
+            continue
         code = safe_get(report, ["code"], None)
         if not code:
             continue  
-        # add log info dictionary to output
         fights = safe_get(report, ["fights"], None)
-        if fights and isinstance(fights, list):
-            fight_reports[code] = {
-                "time": safe_get(report, ["startTime"], None),
-                "fights": fights }
-    
-    return fight_reports
+        if not fights or not isinstance(fights, list):
+            continue
+
+        # add log info dictionary to output
+        fight_logs[code] = {
+            "time": safe_get(report, ["startTime"]),
+            "zone_id": safe_get(report, ["zone", "id"]),
+            "fights": fights }
+
+    if not fight_logs:
+        # no valid fights in non-empty dictionary
+        raise ValueError(f'bad report data: "reportData": {reports}')
+    return fight_logs
 
 def parse_players(players_json: dict) -> dict:
     """ 

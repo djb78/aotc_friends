@@ -42,16 +42,19 @@ def test_transform_fights_pulls_success(mock_load_cache, mock_parse_fights, mock
     mock_parse_fights.return_value = {
         "log01": {
             "time": 1000000,
+            "zone_id": 35,
             "fights": [
                 { "id": 1, 
                   "kill": False, 
                   "encounterID": 101, 
                   "name": "Eranog", 
+                  "difficulty": 4,
                   "friendlyPlayers": [5001, 5002] },
                 { "id": 2,
                   "kill": True,
                   "encounterID": 101,
                   "name": "Eranog",
+                  "difficulty": 4,
                   "friendlyPlayers": [5001, 5002, 5003] }
             ] } }
     t = Transformer(valid_config)
@@ -83,20 +86,24 @@ def test_transform_fights_pulls_schedule(mock_load_cache, mock_parse_fights, moc
     mock_parse_fights.return_value = {
         "log01": {
             "time": 1000000,
+            "zone_id": 35,
             "fights": [
                 { "id": 1, 
                   "kill": False, 
                   "encounterID": 101, 
                   "name": "Eranog", 
+                  "difficulty": 4,
                   "friendlyPlayers": [5001, 5002] }
             ] },
         "log02": {
             "time": 2000000,
+            "zone_id": 35,
             "fights": [
                 { "id": 2,
                   "kill": True,
                   "encounterID": 101,
                   "name": "Eranog",
+                  "difficulty": 4,
                   "friendlyPlayers": [5001, 5002, 5003] }
             ] } } 
     mock_on_schedule.side_effect =  lambda time, schedule: time == 1000000
