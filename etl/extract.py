@@ -37,7 +37,7 @@ class Extractor:
             requires valid config data
                 guild_id
                 zone_id
-                anchor(name, server, region)
+                regular(name, server, region)
 
             query format:
                 query { 
@@ -55,23 +55,34 @@ class Extractor:
             print(f"    {CODES_CACHE_NAME}.json exists, extraction aborted.")
             return 
 
+        # prepare config data
+        guild_id = safe_get(self.config, ["guild_id"])
+        zone_id = safe_get(self.config, ["zone_id"])
+        regular = safe_get(self.config, ["regular"])
+        if not isinstance(regular, dict):
+            raise ValueError(f"{regular} is not formatted correctly. expect dictionary")
+        regular = {
+            "name": safe_get(self.config, ["regular", "name"]),
+            "server": safe_get(self.config, ["regular", "server"]),
+            "region": safe_get(self.config, ["region"])
+        }
+
         # use config data to construct GraphQL query
         query = "query { "
 
         # Guild Report Codes
         query += "reportData { reports( "
-        query += f"guildID: {self.config['guild_id']}, "
-        query += f"zoneID: {self.config['zone_id']}){{"
-        query += "data { code } }"
-        query += "} "
+        query += f"guildID: {guild_id}, "
+        query += f"zoneID: {zone_id}) {{"
+        query += "data { code } "
+        query += "} }"
 
-        # Anchor Character Report Codes & zoneRankings
+        # regular Character Report Codes & zoneRankings
         query += "characterData{ character( "
-        query += f"name: \"{self.config['anchor']['name']}\", "
-        query += f"serverSlug: \"{self.config['anchor']['server']}\", "
-        query += f"serverRegion: \"{self.config['anchor']['region']}\"){{ "
+        query += f"name: \"{regular["name"]}\", "
+        query += f"serverSlug: \"{regular["server"]}\", "
+        query += f"serverRegion: \"{regular["region"]}\") {{ "
         query += "recentReports(limit: 100) { data { code } } "
-        query += f"zoneRankings(zoneID: {self.config['zone_id']}, difficulty: 4)"
         query += "} } "
         
         query += "}"	

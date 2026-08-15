@@ -7,8 +7,9 @@ def load_config(path: str = "config.json")->dict:
     """ Load user settings from config.json 
         verify required fields
         create derivitave fields 
-            schedule datetime info
+            regular = { "name": name, "server": server, "region": region }
             raid = { "name": raid_name, "final_boss": {"id": id, "name": boss_name }}
+            schedule datetime info
             cache_path_r
     """   
     # verify path
@@ -20,22 +21,20 @@ def load_config(path: str = "config.json")->dict:
     with config_path.open('r', encoding='utf-8') as f:
         config = json.load(f)
 
-    # "zone_id", "guild_id" and "anchor" {"name", "server", "region"}
-    # required for current "clean sweep" code retrieval in extract_codes
-    # ==================================================================
-    config_fields = ["zone_id", "guild_id", "anchor"]
-    anchor_fields = ["name", "server", "region"]
     # verify config fields exist
+    # required for current "clean sweep" code retrieval in extract_codes
+    config_fields = ["zone_id", "guild_id", "regular"]
     for field in config_fields:
         if field not in config or not config[field]:
-            raise ValueError(f"{field} must be defined in {config_path}")
-    # verify valid anchor format
-    anchor = config.get("anchor")
-    if not isinstance(anchor, dict):
-        raise ValueError("invalid anchor, should be dictionary")
-    for field in anchor_fields:
-        if field not in anchor or not anchor[field]:
-            raise ValueError(f"missing anchor {field}")
+            raise ValueError(f"'{field}' must be defined in {config_path}")
+
+    # verify valid 'regular' format (name-server)
+    name_server = config.get("regular")
+    if not isinstance(name_server, str) or "-" not in name_server:
+        raise ValueError(f"invalid 'regular' format {name_server} != 'name-server'")
+    # replace with valid dictionary version
+    [name, server] = name_server.split("-", maxsplit=2)
+    config["regular"] = {"name": name, "server": server, "region": config.get("region")}
         
     # verify valid guild_id?
 
@@ -46,11 +45,11 @@ def load_config(path: str = "config.json")->dict:
     # add raid info to config
     config["raid"] = RAIDS[zone_id]
     
-    # prep schedule fields for comparison with WCL timestamps
+    # check schedule and convert to datetime format
     if "schedule" in config:
         config["schedule"] = prep_schedule(config["schedule"])
 
-    # construct path for JSON cache
+    # add path for JSON cache
     guild_id = str(config['guild_id'])
     zone_id = str(config['zone_id'])
     config["cache_path_r"] = Path(".cache") / guild_id / zone_id

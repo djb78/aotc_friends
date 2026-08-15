@@ -32,15 +32,9 @@ def test_parse_unique_codes_success():
                             {"code": "RecentRpt"},
                             {"code": "duplicate"}
                         ]
-                    },
-                    "zoneRankings": {
-                        "rankings": [
-                            {"report": {"code": "r_missing"}},
-                            {"report": {"code": "duplicate"}}
-                        ]
                     } } } } }
     codes = parse_unique_codes(duplicate_data)
-    assert codes == ["GuildRprt", "RecentRpt", "duplicate", "r_missing"]
+    assert codes == ["GuildRprt", "RecentRpt", "duplicate"]
 
 def test_parse_unique_codes_defensive():
     """ Test: skip missing/malformed structures """
@@ -49,15 +43,15 @@ def test_parse_unique_codes_defensive():
             "reportData": None, # reports missing
             "characterData": {
                 "character": {
-                    # recent reports missing
-                    "zoneRankings": {
-                        "rankings": [
-                            {"report": None},
-                            {"report": {"code": "r_missing"}}
+                    "recentReports": {
+                        "data": [
+                            # recent report missing
+                            {"code": None},
+                            {"code": "duplicate"}
                         ]
-                    } } } } } 
+                    } } } } }
     codes = parse_unique_codes(incomplete_data)
-    assert codes == ["r_missing"]
+    assert codes == ["duplicate"]
 
 def test_parse_unique_codes_empty():
     """ Test: empty/None inputs return an empty list """

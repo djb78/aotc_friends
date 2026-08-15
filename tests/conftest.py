@@ -7,12 +7,9 @@ def valid_config():
     return {
         "guild_name": "The Secret Duck Society",
         "guild_id": 123456,
+        "region": "US",
         "zone_id": 35,
-        "anchor": {
-            "name": "Stiff",
-            "server": "Area-52",
-            "region": "US"
-        },
+        "regular": "Stiff-Area52",
         "schedule": {
             "days": ["tuesday", "saturday"],
             "start_est": "20:00",

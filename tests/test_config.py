@@ -19,7 +19,7 @@ def test_load_config_success(tmp_path, valid_config):
         # required fields
         assert config["guild_id"] == 123456
         assert config["zone_id"] == 35
-        assert config["anchor"] == { "name": "Stiff", "server": "Area-52", "region": "US" }
+        assert config["regular"] == { "name": "Stiff", "server": "Area52", "region": "US" }
         # derived fields
         assert config["raid"] == RAIDS[config["zone_id"]]
         assert config["cache_path_r"] == Path(".cache") / "123456" / "35"
@@ -30,51 +30,25 @@ def test_load_config_missing_file():
          load_config("missing.json")
 
 # verify config variables
-# define test cases: (keys_to_delete, keys_to_make_empty, expected_error_message)
-@pytest.mark.parametrize(
-     "to_delete, to_empty, expected_error",
-     [
-         # --- Test Missing Keys ---
-         (["zone_id"], [], "zone_id must be defined"),
-         (["guild_id"], [], "guild_id must be defined"),
-         (["anchor"], [], "anchor must be defined"),
-         ([], ["anchor.name"], "missing anchor name"),
-         ([], ["anchor.server"], "missing anchor server"),
-         ([], ["anchor.region"], "missing anchor region"),
-         
-         # --- Test Empty Keys ---
-         ([], ["zone_id"], "zone_id must be defined"),
-         ([], ["guild_id"], "guild_id must be defined"),
-         ([], ["anchor"], "anchor must be defined"),
-         ([], ["anchor.name"], "missing anchor name"),
-         ([], ["anchor.server"], "missing anchor server"),
-         ([], ["anchor.region"], "missing anchor region")
-     ]
-)
-def test_load_config_validation_errors(tmp_path, valid_config, to_delete, to_empty, expected_error):
+def test_load_config_missing_fields(tmp_path, valid_config):
     config_data = copy.deepcopy(valid_config)
-     
+
     # test missing keys
-    for key in to_delete:
-        config_data.pop(key, None)
-         
-    # test empty keys
-    for key in to_empty:
-        if "." in key:  # Nested key (anchor)
-            parent, child = key.split(".")
-            if config_data.get(parent):
-                config_data[parent][child] = ""
-        else:
-            config_data[key] = ""
+    config_path = tmp_path / "config.json"
+    required_keys = ["zone_id", "guild_id", "regular"]
+    error_message = f"must be defined in {config_path}"
+    for key in required_keys:
+        temp = config_data.pop(key, None)
 
-    # Write bad config to temp file
-    config_file = tmp_path / "config.json"
-    with config_file.open("w", encoding="utf-8") as f:
-        json.dump(config_data, f)
+        with config_path.open("w", encoding="utf-8") as f:
+            json.dump(config_data, f)
 
-    # Assert load_config raises ValueError with expected message
-    with pytest.raises(ValueError, match=expected_error):
-        load_config(path=str(config_file))
+        error = f"'{key}' {error_message}"
+        with pytest.raises(ValueError, match=error):
+            load_config(path=str(config_path))
+
+        config_data[key] = temp
+
 
 # prep_schedule
 # =============

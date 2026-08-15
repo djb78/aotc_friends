@@ -14,32 +14,6 @@ def mock_client():
     } } }
     return client
 
-@pytest.fixture
-def mock_codes_json():
-    """ sample codes.json (good) """
-    return {
-        "data": {
-            "reportData": {
-                "reports": {"data": [{"code": "ReportCode01"}]}
-    } } }
-
-@pytest.fixture
-def mock_fights_json():
-    """ sample fights.json (good) """
-    return {
-        "data": {
-            "reportData": {
-                "ch0_r0": {
-                    "code": "CODE1",
-                    "startTime": 100,
-                    "fights": [{"id": 1}, {"id": 2}]
-                },
-                "ch0_r1": {
-                    "code": "CODE2",
-                    "startTime": 200,
-                    "fights": [{"id": 3}]
-    } } } }
-
 # extract_query
 
 # chunk_list
@@ -85,6 +59,7 @@ def test_extract_codes_success(mock_load_cache, mock_save_cache, mock_client, va
     """
     mock_load_cache.return_value = None
     ex = Extractor(mock_client, valid_config)
+    ex.config["regular"] = { "name": "Stiff", "server": "Area52", "region": "US"}
     ex.extract_codes()
     mock_load_cache.assert_called_once_with(
         valid_config, 
@@ -95,7 +70,7 @@ def test_extract_codes_success(mock_load_cache, mock_save_cache, mock_client, va
     called_query = mock_client.query.call_args[0][0]
     assert str(valid_config['guild_id']) in called_query
     assert str(valid_config['zone_id']) in called_query
-    assert valid_config["anchor"]["name"] in called_query
+    assert valid_config["regular"]["name"] in called_query
 
     mock_save_cache.assert_called_once_with(
         valid_config,
@@ -120,6 +95,17 @@ def test_extract_codes_cached(mock_load_cache, mock_save_cache, mock_client, val
 
     assert not mock_client.query.called
     assert not mock_save_cache.called
+
+# codes.json
+# ==========
+@pytest.fixture
+def mock_codes_json():
+    """ sample codes.json (good) """
+    return {
+        "data": {
+            "reportData": {
+                "reports": {"data": [{"code": "ReportCode01"}]}
+    } } }
 
 # extract_fights tests
 # ====================
@@ -183,6 +169,25 @@ def test_extract_fights_no_codes(mock_load_cache, mock_save_cache, mock_client, 
     assert mock_load_cache.call_count == 2
     assert not mock_client.query.called
     assert not mock_save_cache.called
+
+# fights.json
+# ===========
+@pytest.fixture
+def mock_fights_json():
+    """ sample fights.json (good) """
+    return {
+        "data": {
+            "reportData": {
+                "ch0_r0": {
+                    "code": "CODE1",
+                    "startTime": 100,
+                    "fights": [{"id": 1}, {"id": 2}]
+                },
+                "ch0_r1": {
+                    "code": "CODE2",
+                    "startTime": 200,
+                    "fights": [{"id": 3}]
+    } } } }
 
 # extract players
 # ===============

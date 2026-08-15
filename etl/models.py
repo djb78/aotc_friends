@@ -12,7 +12,7 @@ class Friend:
         self.guid = guid
         self.name: str = ""
         self.server: str = ""
-        self.region: str = ""
+        self.region = "US"
         self.type: str = ""         # class
         self.specs = {}             # { spec: { "role": role, "counts": { code: count }
         self.sightings = 0

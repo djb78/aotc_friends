@@ -1,7 +1,7 @@
 # tools
 # =====
 def safe_get(clean_json: dict, keys: list, default=None):
-    """
+    """ helper
     confirms clean_json is a dict and the key exists (recursive)
     returns the value associated with the last key
         default/None if clean_json or any key is bad/missing
@@ -16,7 +16,8 @@ def safe_get(clean_json: dict, keys: list, default=None):
     return current_json
 
 def prep_json(raw_json: dict) -> dict:
-    """ sanitize raw json input
+    """ helper
+    sanitize raw json input
     handles potential top level "data" key 
     guarantees return -> dict
     """
@@ -32,12 +33,12 @@ def parse_unique_codes(codes_json: dict) -> list:
     parse codes_json for a list of unique codes
 	return sorted list of unique codes
 
-        expected json structure: 
-            "reportData" { "reports" { "data" [ {"code": code }, ... ]
-            "characterData" { "character" { "recentReports" { "data" [ { "code": code }, ...]
-            "characterData" { "character" { "zoneRankings" { "rankings" [ {"report": {"code": code } }, ...]
-
-    [ unique_codes ]
+    input: response from extract_codes query 
+        "reportData" { "reports" { "data" [ {"code": code }, ... ]
+        "characterData" { "character" { "recentReports" { "data" [ { "code": code }, ...]
+    output: list of unique codes
+    
+    extract_codes -> parse_unique_codes -> extract_fights
     """
     # verify raw_json
     data = prep_json(codes_json)
@@ -48,13 +49,9 @@ def parse_unique_codes(codes_json: dict) -> list:
     for report in safe_get(data, ["reportData", "reports", "data"], []):
         if (code := safe_get(report, ["code"])):
             unique_codes.add(code)
-    # recent report codes (last 100 reports uploaded by the anchor character)
+    # recent report codes (last 100 reports uploaded by the 'regular' character)
     for report in safe_get(data, ["characterData", "character", "recentReports", "data"], []):
         if (code := safe_get(report, ["code"])):
-            unique_codes.add(code)
-    # zoneRankings (boss kills involving the anchor character)
-    for ranking in safe_get(data, ["characterData", "character", "zoneRankings", "rankings"], []):
-        if (code := safe_get(ranking, ["report", "code"])):
             unique_codes.add(code)
 
     return list(sorted(unique_codes))
@@ -64,8 +61,11 @@ def parse_fight_ids(fights_json: dict) -> dict:
 	parse fights json for lists of fight ids
 	return a code keyed dictionary of
 	lists of fight ids
-    
-    {"code": [id1, id2, id3, ...], ... }
+
+    input: response from extract_fights query
+    output: {"code": [id1, id2, id3, ...], ... }
+
+    extract_fights -> parse_fight_ids -> extract_players
     """
     data = prep_json(fights_json)
     fight_ids = {}
@@ -139,58 +139,55 @@ def parse_players(players_json: dict) -> dict:
 	return a "code" keyed dictionary of
 	lists of player info dictionaries (role injected)
         
-        expected players_json structure
+    input: response from extract_players query
             "data": { "reportData": { 
-                "ch0_r0: { 
+                "alias: { 
                     "code": code, 
-                    "playerDetails": {
-                        "data": { 
-                            "playerDetails": { 
-                                role: [ {player_info}, ... ], ...
-                }, ... 
-            } }
+                    "playerDetails": { "data": { "playerDetails": { 
+                        role: [ {player_info} ]
+    output: { "code": { "player_id": [ {spec_info}, ... ] }
 
-    output:
-    { "code": { "player_id": [ {spec_info}, ... ] }
+    extract_players -> parse_players -> transform_roster
     """
     # verify players_json
     data = prep_json(players_json)
     player_specs = {}    # code { player_id: [{spec_info}, ], },
 
-    # reportData: { "alias": {"code": code, "playerDetails": {"data": {"playerDetails": {} }}}}
+    # { "code": code, "playerDetails": {"data": {"playerDetails": {} }}}
     for report in safe_get(data, ["reportData"], {}).values():
-        # { "code": code, "playerDetails": {"data": {"playerDetails": {} }}}
+        # get code
         code = safe_get(report, ["code"], None)
-
         # retreive playerDetails (role dictionary)
         player_details = safe_get(report, ["playerDetails", "data", "playerDetails"])
-        # { "tanks": [{spec_info}], "healers": [{spec_info}], "dps": [{spec_info}] }
         if not code or not isinstance(player_details, dict):
             continue
         if code not in player_specs:
             player_specs[code] = {}  # player_id: [{spec_info}, ], 
         
-        # PLAYER [
+        # { "tanks": [{spec_info}], "healers": [{spec_info}], "dps": [{spec_info}] }
         for role, player_list in player_details.items():
-            if not isinstance(player_list, list):
+            if not isinstance(player_list, list) or not player_list:
                 continue
             # player_info -> spec_info
             for player_info in player_list:
-                if not isinstance(player_info, dict):
+                if not isinstance(player_info, dict) or not player_info:
                     continue
                 # inject role
                 spec_info = player_info.copy()
                 spec_info["role"] = role
-
-                # update player spec list
+                # remove report/log specific id
                 player_id = spec_info.pop("id")
+
+                # verify player spec list exists for code
                 if player_id not in player_specs[code]:
                     player_specs[code][player_id] = []  # {spec_info},
-
                 player = player_specs[code][player_id]
-                if not isinstance(player, list):
+                # if the existing player_id value is not a list (of specs)
+                if not isinstance(player, list):    # neccessary? eliminate player variable?
                     player = []
-                player.append(spec_info)
+
+                # add spec_info to output
+                player_specs[code][player_id].append(spec_info)
 
     return player_specs
  
