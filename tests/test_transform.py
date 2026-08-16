@@ -176,7 +176,12 @@ def test_transform_roster_success(mock_load_cache, mock_parse_players, valid_con
 
     t = Transformer(valid_config)
     def mock_friend_spotted(log, sighting):
-        return sighting.get("guid")
+        guid = sighting.get("guid")
+        if guid:
+            mock_friend = MagicMock()
+            mock_friend.sightings = 0
+            t.friends[guid] = mock_friend
+        return guid
     t.friend_spotted = MagicMock(side_effect=mock_friend_spotted)
 
     pull01 = MockPull("log01")
@@ -198,7 +203,12 @@ def test_transform_roster_missing_guid(mock_load_cache, mock_parse_players, vali
     }
     t = Transformer(valid_config)
     def mock_friend_spotted(log, sighting):
-        return sighting.get("guid")
+        guid = sighting.get("guid")
+        if guid:
+            mock_friend = MagicMock()
+            mock_friend.sightings = 0
+            t.friends[guid] = mock_friend
+        return guid
     t.friend_spotted = MagicMock(side_effect=mock_friend_spotted)
 
     pull01 = MockPull("log01")
@@ -248,7 +258,6 @@ def test_friend_spotted_new(valid_config, valid_sighting, valid_log_times):
     assert friend.server == "Area-52"
     assert friend.region == "US"
     assert friend.type == "Druid"
-    assert friend.sightings == 1
     assert "Restoration" in friend.specs
     assert friend.specs["Restoration"] == {"role": "healer", "log_counts": {"log01": 5}}
 
@@ -265,28 +274,23 @@ def test_friend_spotted_same_spec(valid_config, valid_sighting, valid_log_times)
     guid = t.friend_spotted("log01", sighting)
     assert guid == 5001
     friend = t.friends[guid]
-    assert friend.sightings == 1
     assert friend.specs["Restoration"]["log_counts"]["log01"] == 5
 
     # same log different fight, just increment sightings
     t.friend_spotted("log01", sighting)
-    assert friend.sightings == 2
     assert friend.specs["Restoration"]["log_counts"]["log01"] == 5
 
     # same log different fight, different/missing count, ignore
     sighting["specs"] = [{"spec": "Restoration", "count": None}]
     t.friend_spotted("log01", sighting)
-    assert friend.sightings == 3
     assert friend.specs["Restoration"]["log_counts"]["log01"] == 5
 
     sighting["specs"] = [{"spec": "Restoration", "count": 8}]
     t.friend_spotted("log01", sighting)
-    assert friend.sightings == 4
     assert friend.specs["Restoration"]["log_counts"]["log01"] == 5
 
     # different log = new log_count
     t.friend_spotted("log02", sighting)
-    assert friend.sightings == 5
     assert friend.specs["Restoration"]["log_counts"]["log01"] == 5
     assert friend.specs["Restoration"]["log_counts"]["log02"] == 8
 
@@ -305,20 +309,17 @@ def test_friend_spotted_multi_spec(valid_config, valid_sighting, valid_log_times
     guid = t.friend_spotted("log01", sighting)
     assert guid == 5002
     friend = t.friends[guid]
-    assert friend.sightings == 1
     assert friend.specs["Guardian"]["log_counts"]["log01"] == 4
 
     sighting["role"] = "dps"
     sighting["specs"] = [{"spec": "Feral", "count": 3}]
     t.friend_spotted("log01", sighting)
-    assert friend.sightings == 2
     assert friend.specs["Guardian"]["log_counts"]["log01"] == 4
     assert friend.specs["Feral"]["log_counts"]["log01"] == 3
 
     sighting["role"] = "healers"
     sighting["specs"] = [{"spec": "Restoration", "count": 6}]
     t.friend_spotted("log02", sighting)
-    assert friend.sightings == 3
     assert friend.specs["Guardian"]["log_counts"]["log01"] == 4
     assert friend.specs["Feral"]["log_counts"]["log01"] == 3
     assert friend.specs["Restoration"]["log_counts"]["log02"] == 6
@@ -337,24 +338,19 @@ def test_friend_spotted_missing(valid_config, valid_log_times, valid_sighting):
     guid = t.friend_spotted("log01", sighting)
     assert guid == 5001
     friend = t.friends[guid]
-    assert friend.sightings == 1
     assert friend.specs == {}
 
     # specs not a list 
     not_lists = [None, "randomstring", 5, {}]
-    friend.sightings += 1
     for non_list in not_lists:
-        friend.sightings -= 1
         sighting["specs"] = non_list
         t.friend_spotted("log01", sighting)
-        assert friend.sightings == 2
         assert friend.specs == {}
 
     # invalid specs
     one_spec = [{}, 4, "Restoration", [], {"spec": "Restoration", "count": 5}]
     sighting["specs"] = one_spec
     t.friend_spotted("log01", sighting)
-    assert friend.sightings == 3
     assert friend.specs == {"Restoration": {"role": "healer", "log_counts": {"log01": 5}}}
 
     # invalid log_counts

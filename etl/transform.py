@@ -135,34 +135,37 @@ class Transformer:
             fights - friend_sightings:   [ 
             sighting:                    {"guid", "role", "specs", ...
         """
-        # { "code": { "id": [ {player_role_info} ] }
+        # { log_code: { player_id: [ {spec_sighting}, {},  ] }
         players_json = load_cache(self.config, PLAYERS_CACHE_NAME)
-        log_players = parse_players(players_json)
+        parsed_data = parse_players(players_json)
 
         for pull in self.pulls:
-            # use list of log specific player ids
-            player_ids = pull.roster
-            if not isinstance(player_ids, list):
-                continue
             # create list of unique guids
             guid_roster = []
-            missing_id_lists = 0
-            for id in player_ids:
+
+            # use list of log specific player ids
+            id_roster = pull.roster
+            if not isinstance(id_roster, list):
+                continue
+            # use player_ids to get parsed player_info
+            for player_id in id_roster:
                 # { code: { id: 
                 # friend_sightings = safe_get(log_players, [pull.log, id], None)
-                log_data = log_players.get(pull.log, [])
-                friend_sightings = log_data.get(id, log_data.get(str(id), None))
-                if not isinstance(friend_sightings, list):
-                    missing_id_lists += 1
+                log_data = parsed_data.get(pull.log, {})
+                player_seen = log_data.get(player_id)
+                if not isinstance(player_seen, list):
                     continue
                 # [
-                for sighting in friend_sightings:
+                guid = None
+                for spec_sighting in player_seen:
                     # { "guid", "name", "role", "specs"[ {"spec", "count"} ], ... }
                     # update self.friends and get guid
-                    guid = self.friend_spotted(pull.log, sighting)
-                    if guid:
-                        # add guid to new list
-                        guid_roster.append(guid)
+                    guid = self.friend_spotted(pull.log, spec_sighting)
+                if not guid or not guid in self.friends:
+                    continue
+                # add guid to new list
+                guid_roster.append(guid)
+                self.friends[guid].sightings += 1
             # update pull roster to list of guids
             pull.roster = guid_roster
 
@@ -214,5 +217,4 @@ class Transformer:
             if code not in friend_spec["log_counts"]:
                 friend_spec["log_counts"][code] = spec_count
 
-        friend.sightings += 1
         return friend.guid
