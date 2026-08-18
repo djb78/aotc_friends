@@ -22,4 +22,21 @@ class Alt:
                 "sightings": int,   # sum of all log counts
                 "log_counts": {str: int} }} # { code: count }
         self.sightings = 0
-        self.main = guid            # default to self main
+
+    def sort_specs(self)->dict:
+        """ calculate overall spec sightings and 
+            arrange specs from most to least sightings
+        """
+        if not self.specs or not isinstance(self.specs, dict):
+            return
+        # calculate total spec sightings
+        for spec_info in self.specs.values():
+            log_counts = spec_info.get("log_counts", {})
+            spec_info["sightings"] = sum(count for count in log_counts.values() 
+                                            if isinstance(count, int))
+        # sort by sightings highest to lowest
+        spec_preference = sorted(self.specs.items(), 
+                                    key=lambda item: item[1].get("sightings", 0), 
+                                    reverse=True)
+        self.specs = dict(spec_preference)
+       
