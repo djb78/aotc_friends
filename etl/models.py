@@ -40,3 +40,10 @@ class Alt:
                                     reverse=True)
         self.specs = dict(spec_preference)
        
+
+class Friend:
+    """ collection of all a players known alts """
+    def __init__(self, alts: list):
+        self.alts = sorted(alts, key=lambda a: a.sightings, reverse=True)
+        self.sightings = sum(a.sightings for a in alts)
+        self.main = self.alts[0] if self.alts else None

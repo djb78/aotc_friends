@@ -1,9 +1,10 @@
 import pytest, zoneinfo
 from datetime import datetime
+from etl.models import Alt, Friend
 
 @pytest.fixture
 def valid_config():
-    """Provides a fresh, valid configuration dictionary for tests"""
+    """ valid user config dictionary """
     return {
         "guild_name": "The Secret Duck Society",
         "guild_id": 123456,
@@ -14,8 +15,52 @@ def valid_config():
             "days": ["tuesday", "saturday"],
             "start_est": "20:00",
             "end_est": "22:00"
-        }
+        },
+        "has_alts": {}
     }
+
+
+@pytest.fixture
+def sample_friends():
+    """ list of sample friend objects """
+    rogue = Alt(1)
+    rogue.name = "Guccigank"
+    rogue.server = "Thrall"
+    rogue.type = "Rogue"
+    rogue.sightings = 30
+    rogue.specs =  {
+        "Subtlety": {"role": "DPS", "log_counts": {"log1": 18}},
+        "Assassination": {"role": "DPS", "log_counts": {"log1": 12}}
+    }
+    rogue.sort_specs()
+    friend1 = Friend([rogue])
+
+    mage = Alt(2)
+    mage.name = "Hopeseller"
+    mage.server = "Area52"
+    mage.type = "Mage"
+    mage.sightings = 5
+    mage.specs = {"Arcane": {"role": "DPS", "log_counts": {"log1": 5}}}
+    mage.sort_specs()
+    friend2 = Friend([mage])
+
+    dk = Alt(3)
+    dk.name = "Udderlymad"
+    dk.server = "Ursin"
+    dk.type = "DeathKnight"
+    dk.sightings = 12
+    dk.specs = {}
+    dk.sort_specs()
+    druid = Alt(4)
+    druid.name = "Anonymoose"
+    druid.server = "Ursin"
+    druid.type = "Druid"
+    druid.sightings = 10
+    druid.specs = {"Guardian": {"role": "Tank", "log_counts": {"log1": 10}}}
+    druid.sort_specs()
+    friend3 = Friend([dk, druid])
+
+    return [friend1, friend2, friend3]
 
 @pytest.fixture
 def make_dt():

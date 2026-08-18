@@ -2,11 +2,25 @@
     "guild_name": "The Secret Duck Society",
     "guild_id": 780772,
     "region": "US",
-    "zone_id":  44,
+    "zone_id":  46,
     "regular": "Stiff-Area52",
     "schedule": {
         "days": ["tuesday", "saturday"],
         "start_est": "20:00",
         "end_est": "22:00"
+    },
+    "has_alts": {
+        "Väla-Illidan": ["Väla-Vashj"],
+        "Anonymoose-Ursin": ["Foxthisup-Ursin", "Udderlymad-Ursin"],
+        "Stiff-Area52": ["Darkrat-Area52", "Darkbark-Area52", "Darkbat-Area52", "Kickymcfisto-Area52", "Darktharion-Area52"],
+        "Regenerous-Area52": ["Regenestrazå-Area52", "Hygeiå-Area52", "Valorensis-Area52"],
+        "Upsetdruid-Proudmoore": ["Upsetcow-Proudmoore"],
+        "Bowserfist-Lightbringer": ["Painforge-Area52", "Hopeseller-Area52"],
+        "Babysteven-Area52": ["Cursedkid-Area52"],
+        "Natts-Stormrage": ["Tonkatsue-Area52", "Göings-Area52"],
+        "Teansi-Area52": ["Teansifist-Area52", "Avaerra-Stormrage"],
+        "Puretism-Area52": ["Whoneedsmana-Area52", "Emenzi-Area52", "Lavatism-Area52"],
+        "Sarrinlotara-Dalaran": ["Liktan-Dalaran"],
+        "Baldessa-Area52": ["Firenovæ-Area52"]
     }
 }

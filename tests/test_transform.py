@@ -360,3 +360,49 @@ def test_update_alt_missing(valid_config, valid_log_times, valid_sighting):
 
     # invalid count
     # sighting["specs"] = [{ "Unholy": {"log01": None} }]
+
+# transform_alts_friends
+# ======================
+def test_transform_alts_friends_specs(valid_config):
+    """ trigger arrange_specs on all alts """
+    t = Transformer(valid_config)
+
+    alt = Alt(1)
+    alt.name = "Guccigank"
+    alt.server = "Thrall"
+    alt.specs = {
+        "Subtlety": {"role": "DPS", "log_counts": {"log1": 10}}
+    }
+    t.alts = {1: alt}
+
+    t.transform_alts_friends()
+
+    assert "sightings" in alt.specs["Subtlety"]
+    assert alt.specs["Subtlety"]["sightings"] == 10
+
+def test_transform_alts_friends_missing_main(valid_config):
+    t = Transformer(valid_config)
+
+    alt1 = Alt(1)
+    alt1.name = "Kickymcfisto"
+    alt1.server = "Area52"
+    alt1.sightings = 10
+
+    alt2 = Alt(2)
+    alt2.name = "Darkbark"
+    alt2.server = "Area52"
+    alt2.sightings = 5
+
+    t.alts = {1: alt1, 2: alt2}
+
+    t.config["has_alts"] = {
+        "Stiff-Area52": ["Darkbark-Area52", "Kickymcfisto-Area52"]
+    }
+
+    t.transform_alts_friends()
+
+    assert len(t.friends) == 1
+    friend = t.friends[0]
+    assert friend.sightings == 15
+    assert friend.main.name == "Kickymcfisto"
+    assert len(friend.alts) == 2

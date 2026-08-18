@@ -2,7 +2,7 @@ from services.config import on_schedule
 from services.cache import load_cache
 from etl.constants import FIGHTS_CACHE_NAME, PLAYERS_CACHE_NAME, ROLE_NAMES
 from etl.parser import safe_get, parse_fights, parse_players
-from etl.models import Pull, Alt
+from etl.models import Pull, Alt, Friend
 
 class Transformer:
     def __init__(self, config: dict):
@@ -10,6 +10,7 @@ class Transformer:
         self.log_times = {}  # { code: time }
         self.pulls = []      # [ Pulls ]
         self.alts = {}    # { guid: Alt }
+        self.friends = [] # [ Friends ]
 
     def transform_all(self):
         """ coordinator for preping fights and characters for the load phase
@@ -42,6 +43,10 @@ class Transformer:
             pull = self.pulls[0]
             print(f"    - sample roster: {pull.roster}")
         print(f"    - alts:  {len(self.alts)}")
+
+        print("- deriving friend stats")
+        self.transform_alts_friends()
+        print(f"    - friends: {len(self.friends)}")
 
         print("transform phase complete")
 
@@ -225,3 +230,53 @@ class Transformer:
         # verify alt exists in self.alts
         return alt.guid
 
+
+    def name_to_guid(self, name_server: str)->int:
+        """ find the guid for a name-server string in self.alts  """
+        if not isinstance(name_server, str) or "-" not in name_server:
+            raise ValueError(f"invalid format: {name_server} != 'name-server'")
+        [name, server] = name_server.split("-", maxsplit=1)
+        for guid, alt in self.alts.items():
+            if alt.name == name and alt.server == server:
+                return guid
+        return 0
+
+
+    def transform_alts_friends(self):
+        """ guids all in one place for the first time
+            clean up alt data
+            group related alts (config "has_alts")
+            use groups of alts to create friends (list of groups)
+        """
+        # sort specs to determine main
+        for alt in self.alts.values():
+            alt.sort_specs()
+
+        # Friend = group of all known player alts
+        # default: every alt is a part of it's own friend group
+        friend_groups = {guid: {guid} for guid in self.alts}
+        # if alts are defined in config, combine them into one group
+        for main_name, alt_names in self.config["has_alts"].items():
+            main_guid = self.name_to_guid(main_name)
+            if not main_guid:
+                # still group alts if main not present
+                alt_guids = set()
+            else:
+                # add main to group
+                alt_guids = friend_groups[main_guid]
+            for alt_name in alt_names:
+                # add alts to group
+                alt_guid = self.name_to_guid(alt_name)
+                if not alt_guid:
+                    continue
+                alt_guids.update(friend_groups[alt_guid])
+            # copy group to all alts
+            for guid in alt_guids:
+                friend_groups[guid] = alt_guids
+
+        # remove duplicate groups
+        unique_groups = set(frozenset(group) for group in friend_groups.values())
+        self.friends = []
+        for group in unique_groups:
+            unique_alts = [self.alts[guid] for guid in group]
+            self.friends.append(Friend(unique_alts))
