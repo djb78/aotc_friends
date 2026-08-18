@@ -3,6 +3,7 @@ from services.config import load_config
 from services.client import WCLClient
 from etl.extract import Extractor
 from etl.transform import Transformer
+from etl.load import Loader
 
 def main():
     config = load_config()
@@ -15,6 +16,9 @@ def main():
 
     t = Transformer(config)
     t.transform_all()
+
+    l = Loader(config, t.friends)
+    l.load_friends()
 
 
 if __name__ == "__main__":
