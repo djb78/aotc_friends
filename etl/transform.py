@@ -2,14 +2,14 @@ from services.config import on_schedule
 from services.cache import load_cache
 from etl.constants import FIGHTS_CACHE_NAME, PLAYERS_CACHE_NAME, ROLE_NAMES
 from etl.parser import safe_get, parse_fights, parse_players
-from etl.models import Pull, Friend
+from etl.models import Pull, Alt
 
 class Transformer:
     def __init__(self, config: dict):
         self.config = config
         self.log_times = {}  # { code: time }
         self.pulls = []      # [ Pulls ]
-        self.friends = {}    # { guid: Friend }
+        self.alts = {}    # { guid: Alt }
 
     def transform_all(self):
         """ coordinator for preping fights and characters for the load phase
@@ -34,14 +34,14 @@ class Transformer:
             pull = self.pulls[0]
             print(f"    - sample roster: {pull.roster}")
 
-        print("- building friend dictionary")
-        self.transform_roster()
+        print("- building alt dictionary")
+        self.transform_pulls_alts()
         print(f"    - logs:     {len(self.log_times)}")
         print(f"    - pulls:    {len(self.pulls)}")
         if len(self.pulls) > 0:
             pull = self.pulls[0]
             print(f"    - sample roster: {pull.roster}")
-        print(f"    - friends:  {len(self.friends)}")
+        print(f"    - alts:  {len(self.alts)}")
 
         print("transform phase complete")
 
@@ -123,16 +123,18 @@ class Transformer:
             if pull.log in self.log_times
         ]
 
-    def transform_roster(self):
+    def transform_pulls_alts(self):
         """ use the base roster of log specific player ids to
             create a guid roster to replace it.
 
-            acquire guid from self.friend_spotted to 
-            populate/update self.friends
+            acquire guid from self.update_alt to 
+            populate/update self.alts
+
+            increment sightings for each alt confirmed
 
             report - log_players:        { code: 
             player_ids:                  { id: 
-            fights - friend_sightings:   [ 
+            fights - alt_sightings:   [ 
             sighting:                    {"guid", "role", "specs", ...
         """
         # { log_code: { player_id: [ {spec_sighting}, {},  ] }
@@ -140,38 +142,38 @@ class Transformer:
         parsed_data = parse_players(players_json)
 
         for pull in self.pulls:
-            # create list of unique guids
-            guid_roster = []
-
-            # use list of log specific player ids
-            id_roster = pull.roster
+            log_data = parsed_data.get(pull.log, {})
+            
+            guid_roster = []        # create list of unique guids
+            id_roster = pull.roster # use list of log specific player ids
             if not isinstance(id_roster, list):
                 continue
-            # use player_ids to get parsed player_info
+            # use player_ids to count alt sightings
             for player_id in id_roster:
                 # { code: { id: 
-                # friend_sightings = safe_get(log_players, [pull.log, id], None)
-                log_data = parsed_data.get(pull.log, {})
                 player_seen = log_data.get(player_id)
                 if not isinstance(player_seen, list):
                     continue
-                # [
+
+                # ensure alt info is represented in self.alts
                 guid = None
                 for spec_sighting in player_seen:
-                    # { "guid", "name", "role", "specs"[ {"spec", "count"} ], ... }
-                    # update self.friends and get guid
-                    guid = self.friend_spotted(pull.log, spec_sighting)
-                if not guid or not guid in self.friends:
+                    # { "guid", "name", "role", "specs": [ {"spec", "count"} ], ... }
+                    guid = self.update_alt(pull.log, spec_sighting)
+                if not guid or not guid in self.alts:
                     continue
-                # add guid to new list
+
+                # increment alt.sightings
+                self.alts[guid].sightings += 1
+                # add guid to new pull roster
                 guid_roster.append(guid)
-                self.friends[guid].sightings += 1
+
             # update pull roster to list of guids
             pull.roster = guid_roster
 
-    def friend_spotted(self, code: str, sighting: dict) -> int:
-        """ Add new friend and/or spec info to self.friends
-            return friend guid or None if inputs are invalid
+    def update_alt(self, code: str, sighting: dict) -> int:
+        """ Add new alt and/or spec info to self.alts
+            return alt guid or None if inputs are invalid
             invalid spec info is skipped
             
             sighting = {"guid", "name", ..., "role", "specs": [ {"spec", "count"} ]}
@@ -181,40 +183,45 @@ class Transformer:
         guid_seen = sighting.get("guid")
         if not guid_seen: return None
 
-        # ensure friend exists
-        if guid_seen not in self.friends:
-            friend_seen = Friend(guid_seen)
-            friend_seen.name = sighting.get("name")
-            friend_seen.server = sighting.get("server")
-            friend_seen.region = sighting.get("region")
-            friend_seen.type = sighting.get("type")
-            friend_seen.sightings = 0
-            friend_seen.specs = {}   # { spec: { "role": role, "counts": { code: count }
-            self.friends[guid_seen] = friend_seen
-        friend = self.friends[guid_seen]
+        # ensure alt exists
+        if guid_seen not in self.alts:
+            alt_seen = Alt(guid_seen)
+            alt_seen.name = sighting.get("name")
+            alt_seen.server = sighting.get("server")
+            alt_seen.region = sighting.get("region")
+            alt_seen.type = sighting.get("type")
+            alt_seen.sightings = 0
+            alt_seen.specs = {}   # { spec: { "role": role, "counts": { code: count }
+            self.alts[guid_seen] = alt_seen
+        alt = self.alts[guid_seen]
 
-        # update existing friend
+        # update existing alt spec info
         specs_seen = sighting.get("specs", [])   # [ {"spec", "count"} ]
         if not isinstance(specs_seen, list):
-            # guid still spotted and self.friends[guid] exists, 
-            # increment sightings and return guid
+            # guid still spotted and self.alts[guid] exists
             specs_seen = [] 
 
-        # ensure specs and log_counts exist
         for seen_spec in specs_seen:  # {"spec", "count"}
+            # skip missing/bad info for update, alt was still spotted
             if not isinstance(seen_spec, dict) or "spec" not in seen_spec:
                 continue
-            # ensure spec exists
+
             spec_name = seen_spec.get("spec")
-            if spec_name not in friend.specs:
+            spec_count = seen_spec.get("count")
+            if not spec_count or not isinstance(spec_count, int):
+                continue
+
+            # ensure spec exists
+            if spec_name not in alt.specs:
                 role_seen = sighting.get("role")
                 role_name = ROLE_NAMES.get(role_seen, role_seen)
-                friend.specs[spec_name] = { "role": role_name, "log_counts": {}}
-            friend_spec = friend.specs[spec_name]   # { "role": role, "log_counts": { code: count }
+                alt.specs[spec_name] = { "role": role_name, "log_counts": {}}
+            alt_spec = alt.specs[spec_name]   # { "role": role, "log_counts": { code: count }
 
             # add count to log_counts (should always be the same)
-            spec_count = seen_spec.get("count")
-            if code not in friend_spec["log_counts"]:
-                friend_spec["log_counts"][code] = spec_count
+            if code not in alt_spec["log_counts"]:
+                alt_spec["log_counts"][code] = spec_count
 
-        return friend.guid
+        # verify alt exists in self.alts
+        return alt.guid
+

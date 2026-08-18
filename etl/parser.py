@@ -147,7 +147,7 @@ def parse_players(players_json: dict) -> dict:
                         role: [ {player_info} ]
     output: { "code": { "player_id": [ {spec_info}, ... ] }
 
-    extract_players -> parse_players -> transform_roster
+    extract_players -> parse_players -> transform_pulls_alts
     """
     # verify players_json
     data = prep_json(players_json)

@@ -7,13 +7,19 @@ class Pull:
         self.kill = False
         self.roster = []    # list of guids
 
-class Friend:
+class Alt:
+    """ a specific alt/character """
     def __init__(self, guid: int):
         self.guid = guid
         self.name: str = ""
         self.server: str = ""
-        self.region = "US"
-        self.type: str = ""         # class
-        self.specs = {}             # { spec: { "role": role, "counts": { code: count }
+        self.region = ""
+        self.type: str = ""  # class
+        self.specs = { 
+            str: {  # spec name
+                "name": str, # spec name
+                "role": str, # "tank", "healer", "dps"
+                "sightings": int,   # sum of all log counts
+                "log_counts": {str: int} }} # { code: count }
         self.sightings = 0
         self.main = guid            # default to self main
