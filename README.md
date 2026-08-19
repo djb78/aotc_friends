@@ -1,16 +1,16 @@
 # AotC Friends
 An automated command-line tool that analyzes Warcraft Logs to track raid attendance, map alts to mains, and recognize every player who contributed to your guild's Ahead of the Curve (AotC) progression.
 
-## Core Functionality
-This tool scans your raid history to identify every character who participated in scheduled guild runs, tracking:
-- **Progression Pull Counts:** Exactly how many boss pulls each character was present for.
-- **Spec & Role Breakdown:** What specs and roles they played, and how often.
-- **AOTC Cutoff:** Automatically stops counting pulls after the final boss is killed, ensuring stats reflect true progression effort.
-### Alt Mapping (Optional)
+
+This tool scans a guilds raid history to identify every character who participated in scheduled guild runs, tracking:
+- **Progression Pull Counts:** how many boss pulls each character was present for.
+- **Spec & Role Breakdown:** What specs they played, and how often.
+- **AOTC Cutoff:** stops counting pulls after the final boss is killed, ensuring stats reflect progression.
+
 To account for people playing alts, you can provide a manual mapping in `config.json`. 
 The tool will then:
 - Group alts together with their main, raid tier main determined by alt attendance
-- Combine their pull counts to show true, player-level attendance.
+- Combine their pull counts to show player-level attendance.
 - Display nested spec breakdowns for each character they played
 
 ## Prerequisites
