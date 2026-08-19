@@ -1,8 +1,7 @@
 # AotC Friends
-An automated command-line tool that analyzes Warcraft Logs to track raid attendance, identify core raiders, and map character alts back to their mains for a unified guild roster during Ahead of the Curve (AotC) progression.
+An automated command-line tool that analyzes Warcraft Logs to track raid attendance, map alts to mains, and recognize every player who contributed to your guild's Ahead of the Curve (AotC) progression.
 
-## What It Does
-### Core Functionality
+## Core Functionality
 This tool scans your raid history to identify every character who participated in scheduled guild runs, tracking:
 - **Progression Pull Counts:** Exactly how many boss pulls each character was present for.
 - **Spec & Role Breakdown:** What specs and roles they played, and how often.
@@ -21,7 +20,7 @@ To get data from Warcraft Logs, you need a free client ID and client secret from
 ### 1. Get the program
 clone the repo to the desired location on your local machine
 ```
-git clone 
+git clone https://github.com/djb78/aotc_friends.git
 cd aotc-friends
 ```
 ### 2. Set up a virtual environment (venv)
@@ -66,7 +65,7 @@ config.json structure
 ```
 
 ### required fields
-- **`zone_id`**: Identifies the raid tier to analyze (see the reference list below).
+- **`zone_id`**: Identifies the raid tier to analyze (see below).
 - **`guild_id`**: The guild's numerical ID found in their Warcraft Logs URL. Used to get logs officially attributed to the guild.
 - **`region`**: `"US"`, `"EU"`, etc. Used to uniquely identify the guild and characters.
 - **`regular`**: The `"Name-Server"` string of a raider with high attendance. Used to fill in any gaps in guild attributed logs.
@@ -88,39 +87,48 @@ this project uses 'pytest' for unit and integration testing. To run the test sui
 pytest
 ```
 
-# Zone ID reference
-### MIDNIGHT
-50 - Sporefall
-46 - VS / DR / MQD
-### TWW
-44 - Manaforge Omega
-42 - Liberation of Undermine
-40 - Blackrock Depths
-38 - Nerub-ar Palace
-### DF
-35 - Amirdrassil, the Dream's Hope
-33 - Aberrus, the Shadowed Crucible
-31 - Vault of the Incarnates
-### SL
-29 - Sepulcher of the First Ones
-28 - Sanctum of Domination
-26 - Castle Nathria
-### BFA
-24 - Ny'alotha
-23 - The Eternal Palace
-22 - Crucible of Storms
-21 - Battle of Dazar'alor
-19 - Uldir
-### LEGION
-17 - Antorus, The Burning Throne
-13 - Tomb of Sargeras
-12 - Trial of Valor
-11 - The Nighthold
-10 - Emerald Nightmare
-### WOD
-8 - Hellfire Citadel
-7 - Blackrock Foundry
-6 - Highmaul
-### MOP
-5 - Siege of Orgrimmar
-4 - Throne of Thunder
+## Background & Motivation
+### What is AotC?
+Ahead of the Curve (AotC) is a World of Warcraft achievement awarded for defeating the final boss of a raid tier on Heroic difficulty before the next major patch cycle. For casual and semi-hardcore guilds, achieving AotC is the ultimate team goal of the season.
+
+### Why build this?
+The idea for this tool was born while reconstructing the five-season AotC history for our casual raiding guild. I realized that, due to scheduling conflicts, many players who spent weeks progressing on wipe nights were missing from the final kill group.
+
+Warcraft Logs doesn't provide an easy way to display this information, particularly for guilds without consistent historical log uploaders. These progression contributors become difficult to represent in a recap. This tool scans a guilds entire raid history to ensure every player who put in the work on progression nights is recognized for their contribution.
+
+## Zone ID reference
+#### MIDNIGHT
+- 50 - Sporefall
+- 46 - VS / DR / MQD
+#### TWW
+- 44 - Manaforge Omega
+- 42 - Liberation of Undermine
+- 40 - Blackrock Depths
+- 38 - Nerub-ar Palace
+#### DF
+- 35 - Amirdrassil, the Dream's Hope
+- 33 - Aberrus, the Shadowed Crucible
+- 31 - Vault of the Incarnates
+#### SL
+- 29 - Sepulcher of the First Ones
+- 28 - Sanctum of Domination
+- 26 - Castle Nathria
+#### BFA
+- 24 - Ny'alotha
+- 23 - The Eternal Palace
+- 22 - Crucible of Storms
+- 21 - Battle of Dazar'alor
+- 19 - Uldir
+#### LEGION
+- 17 - Antorus, The Burning Throne
+- 13 - Tomb of Sargeras
+- 12 - Trial of Valor
+- 11 - The Nighthold
+- 10 - Emerald Nightmare
+#### WOD
+- 8 - Hellfire Citadel
+- 7 - Blackrock Foundry
+- 6 - Highmaul
+#### MOP
+- 5 - Siege of Orgrimmar
+- 4 - Throne of Thunder
