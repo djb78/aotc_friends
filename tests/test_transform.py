@@ -1,7 +1,7 @@
 import pytest, copy
 from unittest.mock import MagicMock, patch
 from etl.transform import Transformer
-from etl.models import Alt
+from domain.models import Alt
 
 class MockPull:
     def __init__(self, log):

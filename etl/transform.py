@@ -1,8 +1,8 @@
 from services.config import on_schedule
 from services.cache import load_cache
-from etl.constants import FIGHTS_CACHE_NAME, PLAYERS_CACHE_NAME, ROLE_NAMES
 from etl.parser import safe_get, parse_fights, parse_players
-from etl.models import Pull, Alt, Friend
+from domain.constants import FIGHTS_CACHE_NAME, PLAYERS_CACHE_NAME, ROLE_NAMES
+from domain.models import Pull, Alt, Friend
 
 class Transformer:
     def __init__(self, config: dict):

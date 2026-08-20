@@ -1,7 +1,7 @@
 import json, calendar, zoneinfo
 from datetime import datetime, timedelta
 from pathlib import Path
-from etl.constants import RAIDS
+from domain.constants import RAIDS
 
 def load_config(path: str = "config.json")->dict: 
     """ Load user settings from config.json 

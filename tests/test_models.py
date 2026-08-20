@@ -1,5 +1,5 @@
 import pytest
-from etl.models import Alt, Friend
+from domain.models import Alt, Friend
 
 def test_alt_sort_specs_empty():
     """ handles friend with no specs """

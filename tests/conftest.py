@@ -1,6 +1,6 @@
 import pytest, zoneinfo
 from datetime import datetime
-from etl.models import Alt, Friend
+from domain.models import Alt, Friend
 
 @pytest.fixture
 def valid_config():

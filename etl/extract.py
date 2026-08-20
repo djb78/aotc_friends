@@ -1,5 +1,5 @@
 from services.cache import save_cache, load_cache
-from etl.constants import CODES_CACHE_NAME, FIGHTS_CACHE_NAME, PLAYERS_CACHE_NAME
+from domain.constants import CODES_CACHE_NAME, FIGHTS_CACHE_NAME, PLAYERS_CACHE_NAME
 from etl.parser import parse_unique_codes, parse_fight_ids, safe_get
 
 class Extractor:

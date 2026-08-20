@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from etl.extract import Extractor
-from etl.constants import CODES_CACHE_NAME, FIGHTS_CACHE_NAME, PLAYERS_CACHE_NAME
+from domain.constants import CODES_CACHE_NAME, FIGHTS_CACHE_NAME, PLAYERS_CACHE_NAME
 
 @pytest.fixture
 def mock_client():

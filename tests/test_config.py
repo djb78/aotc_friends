@@ -1,7 +1,7 @@
 import json, pytest, copy, calendar
 from pathlib import Path
 from services.config import load_config, prep_schedule, on_schedule
-from etl.constants import RAIDS
+from domain.constants import RAIDS
 
 def test_load_config_success(tmp_path, valid_config):
         """ test: verify the config file exists and
