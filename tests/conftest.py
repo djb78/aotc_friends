@@ -1,23 +1,31 @@
 import pytest, zoneinfo
 from datetime import datetime
+from services.config import AppConfig
 from domain.models import Alt, Friend
 
 @pytest.fixture
-def valid_config():
+def user_config():
     """ valid user config dictionary """
     return {
         "guild_name": "The Secret Duck Society",
         "guild_id": 123456,
         "region": "US",
         "zone_id": 35,
-        "regular": "Stiff-Area52",
+        "anchor_alt": "Stiff-Area52",
         "schedule": {
             "days": ["tuesday", "saturday"],
             "start_est": "20:00",
             "end_est": "22:00"
         },
-        "has_alts": {}
+        "has_alts": {
+            "Stiff-Area52": ["Darkrat-Area52"]
+        }
     }
+
+@pytest.fixture
+def valid_config(user_config):
+    """valid AppConfig object based on user_config"""
+    return AppConfig.model_validate(user_config)
 
 
 @pytest.fixture

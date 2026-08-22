@@ -22,7 +22,7 @@ def test_chunk_list(mock_client, valid_config):
     """ Test: correctly slices lists 
         based on config chunk_size
     """
-    valid_config["chunk_size"] = 3
+    valid_config.chunk_size = 3
     e = Extractor(mock_client, valid_config)
 
     data = [1, 2, 3, 4, 5, 6, 7]
@@ -59,7 +59,6 @@ def test_extract_codes_success(mock_load_cache, mock_save_cache, mock_client, va
     """
     mock_load_cache.return_value = None
     ex = Extractor(mock_client, valid_config)
-    ex.config["regular"] = { "name": "Stiff", "server": "Area52", "region": "US"}
     ex.extract_codes()
     mock_load_cache.assert_called_once_with(
         valid_config, 
@@ -68,9 +67,9 @@ def test_extract_codes_success(mock_load_cache, mock_save_cache, mock_client, va
     assert mock_client.query.called
 
     called_query = mock_client.query.call_args[0][0]
-    assert str(valid_config['guild_id']) in called_query
-    assert str(valid_config['zone_id']) in called_query
-    assert valid_config["regular"]["name"] in called_query
+    assert str(valid_config.guild_id) in called_query
+    assert str(valid_config.zone_id) in called_query
+    assert valid_config.anchor_alt.name in called_query
 
     mock_save_cache.assert_called_once_with(
         valid_config,

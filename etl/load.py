@@ -1,7 +1,7 @@
-
+from services.config import AppConfig
 
 class Loader:
-    def __init__(self, config: dict, friends: list):
+    def __init__(self, config: AppConfig, friends: list):
         self.config = config
         self.friends = friends
 
@@ -44,8 +44,8 @@ class Loader:
 
     def to_markdown(self, friends: list) -> str:
         """ create a markdown list of friends """
-        guild = self.config.get("guild_name")
-        raid = self.config.get("raid")
+        guild = self.config.guild_name
+        raid = self.config.raid
 
         header_md = []
         if guild:

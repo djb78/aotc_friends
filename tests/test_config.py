@@ -1,157 +1,172 @@
-import json, pytest, copy, calendar
+import json, pytest
 from pathlib import Path
-from services.config import load_config, prep_schedule, on_schedule
+from pydantic import ValidationError
+from services.config import load_config, AppConfig, AltConfig, ScheduleConfig
 from domain.constants import RAIDS
 
-def test_load_config_success(tmp_path, valid_config):
-        """ test: verify the config file exists and
-            contains the fields required for core functionality
-        """
-        # temporary config file
-        config_data = valid_config
+# load_config
+# ==========================================
+def test_load_config_success(tmp_path, user_config):
+        """ test: reads a json file and returns AppConfig """
         config_file = tmp_path / "config.json"
         with config_file.open("w", encoding="utf-8") as f:
-            json.dump(config_data, f)
+            json.dump(user_config, f)
 
         # Run the function
         config = load_config(path=str(config_file))
 
-        # required fields
-        assert config["guild_id"] == 123456
-        assert config["zone_id"] == 35
-        assert config["regular"] == { "name": "Stiff", "server": "Area52", "region": "US" }
-        # derived fields
-        assert config["raid"] == RAIDS[config["zone_id"]]
-        assert config["cache_path_r"] == Path(".cache") / "123456" / "35"
-
+        assert isinstance(config, AppConfig)
+        assert config.guild_id == user_config["guild_id"]
+        assert config.zone_id == user_config["zone_id"]
 
 def test_load_config_missing_file():
      with pytest.raises(FileNotFoundError):
          load_config("missing.json")
 
-# verify config variables
-def test_load_config_missing_fields(tmp_path, valid_config):
-    config_data = copy.deepcopy(valid_config)
+# ScheduleConfig
+# ==========================================
+# days_to_int
+# ===========
+def test_days_to_int_success():
+    """Test: day names converted to correct ints"""
+    schedule = ScheduleConfig(
+        days=["Tuesday", "Saturday"],
+        start_est="20:00",
+        end_est="22:00"
+    )
+    assert schedule.days == set([2, 6])
 
-    # test missing keys
-    config_path = tmp_path / "config.json"
-    required_keys = ["zone_id", "guild_id", "regular"]
-    error_message = f"must be defined in {config_path}"
-    for key in required_keys:
-        temp = config_data.pop(key, None)
-
-        with config_path.open("w", encoding="utf-8") as f:
-            json.dump(config_data, f)
-
-        error = f"'{key}' {error_message}"
-        with pytest.raises(ValueError, match=error):
-            load_config(path=str(config_path))
-
-        config_data[key] = temp
-
-
-# prep_schedule
-# =============
-def test_prep_schedule_success():
-    """ returns a schedule correctly formated for time/date comparison """
-    user_schedule = {
-        "days": ["tuesday"],
-        "start_est": "20:00",
-        "end_est": "23:00",
-        "moto": "what are these birds doing here?"
-    }
-    datetime_schedule = prep_schedule(user_schedule)
-
-    assert set(datetime_schedule.keys()) == {"start", "end", "overnight", "days"}
-    assert datetime_schedule["days"] == ["Tuesday"]
-    assert datetime_schedule["start"].hour == 20
-    assert datetime_schedule["end"].hour == 23
-    assert datetime_schedule["overnight"] == False
-
-def test_prep_schedule_overnight():
-    """ overnight schedule sets flag and increments end day """
-    user_schedule = {
-        "days": ["FRIDAY"],
-        "start_est": "23:00",
-        "end_est": "01:00"
-    }
-    datetime_schedule = prep_schedule(user_schedule)
-
-    assert set(datetime_schedule.keys()) == {"start", "end", "overnight", "days"}
-    assert datetime_schedule["overnight"] == True
-    assert datetime_schedule["end"].day == 2
-    assert datetime_schedule["end"].hour == 1
-
-def test_prep_schedule_format():
-    """ invalid time format raises ValueError """
-    user_schedule = {
-        "days": ["Tuesday"],
-        "start_est": "8:00 PM",
-        "end_est": "10:00 PM"
-    }
-    with pytest.raises(ValueError, match='invalid raid time. correct time format "HH:MM" 24hr'):
-        prep_schedule(user_schedule)
-
-def test_prep_schedule_invalid():
-    """ return empty dict if schedule is not valid """
-    invalid_schedules = [{}, None, "tuesdays and thursdays at 7 pm"]
-    for invalid in invalid_schedules:
-        assert prep_schedule(invalid) == {}
-
-
-@pytest.mark.parametrize(
-        "incomplete_schedule, first_missing_field",
-        [
-            ({"start": "18:00", "user_key": 42}, "days"),
-            ({"days": ["monday"], "start": "18:00"}, "start_est"),
-            ({"start_est": "18:00"}, "days"),
-            ({"days": ["THURSDAY"], "start_est": "20:00"}, "end_est")
-        ]
-)
-def test_prep_schedule_incomplete(incomplete_schedule, first_missing_field):
-    """ handles missing keys with informative error message 
-        key check order "days" > "start_est" > "end_est"
+def test_days_to_int_mix():
+    """ Test: case-insensitive
+        ints in the range 1-7 are directly added to the list
     """
-    with pytest.raises(ValueError, match=f'schedule must define "{first_missing_field}"'):
-        prep_schedule(incomplete_schedule)
+    schedule = ScheduleConfig(
+        days=[1, "Tuesday", "WEDNESDAY", "thursday", 5],
+        start_est="20:00",
+        end_est="22:00"
+    )
+    assert schedule.days == set([1, 2, 3, 4, 5])
 
-def test_prep_schedule_days():
-    """ handles invalid keys with an informative error message """
-    bad_days = ["Sat", "Sun", "Day", "T", "Th"]
-    good_times = {
-        "days": ["Tuesday"],
-        "start_est": "19:00",
-        "end_est": "21:00"
-    }
-    day_names = set(calendar.day_name)
-    for bad_day in bad_days:
-        moving_on = copy.deepcopy(good_times)
-        moving_on["days"].append(bad_day)
-        with pytest.raises(ValueError, match=f'"{bad_day}" not in {day_names}'):
-            prep_schedule(moving_on)
+def test_days_to_int_invalid():
+    """Test: invalid day names raise ValidationError"""
+    with pytest.raises(ValidationError) as error:
+        ScheduleConfig(days=["Noneday"], start_est="20:00", end_est="22:00")
 
-# on_schedule
-# =============
-@pytest.fixture
-def valid_schedule(make_dt):
-    """ provide a fresh, valid schedule for testing """
-    return {
-        "days": ["Tuesday"],
-        "start": make_dt("Tuesday", "20:00"),
-        "end": make_dt("Tuesday", "22:00"),
-        "overnight": False
-    }
+    assert "invalid day name" in str(error)
 
-def test_on_schedule_true(make_ms, valid_schedule):
-    """ correctly identifies timestamps that
-        coincide with schedule days/times
-    """
-    start_time = make_ms("Tuesday", "20:15")
-    assert on_schedule(start_time, valid_schedule) is True
+def test_days_to_int_other():
+    """Test: non-string day "names" raise ValidationError"""
+    others = [0, 10, {}, [], None, True]
+    for other in others:
+        with pytest.raises(ValidationError) as error:
+            ScheduleConfig(days=[other], start_est="20:00", end_est="22:00")
+        assert "days must be strings" in str(error)
 
-def test_on_schedule_false(make_ms, valid_schedule):
-    """ filters out off days and times """
-    off_day = make_ms("Wednesday", "20:00")
-    wrong_time = make_ms("Tuesday", "08:00")
-    assert on_schedule(off_day, valid_schedule) is False
-    assert on_schedule(wrong_time, valid_schedule) is False
+# includes
+# ========
+def test_includes_true(make_ms):
+    """Test a standard on-schedule log"""
+    schedule = ScheduleConfig(days=[2], start_est="20:00", end_est="22:00")
+    true_ms = make_ms("Tuesday", "20:30")
+    assert schedule.includes(true_ms) is True
+
+def test_includes_false(make_ms):
+    """Test an off-schedule log"""
+    schedule = ScheduleConfig(days=[2], start_est="20:00", end_est="22:00")
+    false_ms = make_ms("Wednesday", "20:15")
+    assert schedule.includes(false_ms) is False
+
+def test_includes_overnight(make_ms):
+    """Test an overnight schedule with a late-start (after midnight) log"""
+    overnight = ScheduleConfig(days=[2], start_est="23:00", end_est="01:00")
+    late_ms = make_ms("Wednesday", "00:05")
+    assert overnight.includes(late_ms) is True
+
+def test_includes_early(make_ms):
+    """Test an early-start log"""
+    schedule = ScheduleConfig(days=[2], start_est="20:00", end_est="22:00")
+    early_ms = make_ms("Tuesday", "19:45")
+    assert schedule.includes(early_ms) is True
+
+# AppConfig
+# ==========================================
+# scheduled
+# =========
+def test_scheduled_none(user_config, make_ms):
+    """Test that an undefined schedule returns True"""
+    user_config["schedule"] = None
+    config = AppConfig.model_validate(user_config)
+    anytime_ms = make_ms("Monday", "11:00")
+    assert config.scheduled(anytime_ms) is True
+
+# name_to_alt
+# ===========
+def test_name_to_alt(user_config):
+    """Test that "anchor_alt" correctly parses into name, server, and inherits region"""
+    user_config["region"] = "EU"
+    user_config["anchor_alt"] = "Guccigank-Thrall"
+    config = AppConfig.model_validate(user_config)
+
+    assert config.anchor_alt.name == "Guccigank"
+    assert config.anchor_alt.server == "Thrall"
+    assert config.anchor_alt.region == "EU"
+
+# import_alts
+# ===========
+def test_import_alts(user_config):
+    """Test that alts in has_alts also correctly inherit the top-level region."""
+    user_config["region"] = "KR"
+    user_config["has_alts"] = {"Stiff-Area52": ["Darkrat-Area52", "Darkbark-Area52"]}
+    config = AppConfig.model_validate(user_config)
+
+    alts_list = config.has_alts["Stiff-Area52"]
+    assert len(alts_list) == 2
+    assert isinstance(alts_list[0], AltConfig)
+    assert alts_list[0].name == "Darkrat"
+    assert alts_list[0].region == "KR"
+
+# check_region
+# ============
+def test_check_region_valid(user_config):
+    """Test that valid regions are accepted and normalized to uppercase."""
+    for region in ["us", "Eu", "CN"]:
+        user_config["region"] = region
+        config = AppConfig.model_validate(user_config)
+        assert config.region == region.upper()
+
+def test_check_region_invalid(user_config):
+    """Test that an invalid region raises a ValidationError."""
+    user_config["region"] = "OCE"
+    with pytest.raises(ValidationError) as error:
+        AppConfig.model_validate(user_config)
+    assert "invalid region" in str(error)
+
+# check_zone
+# ==========
+def test_check_zone_valid(user_config):
+    """Test that a valid zone_id is accepted."""
+    user_config["zone_id"] = 35
+    config = AppConfig.model_validate(user_config)
+    assert config.zone_id == 35
+
+def test_check_zone_invalid(user_config):
+    """Test that an invalid zone_id raises a ValidationError."""
+    user_config["zone_id"] = 999
+    with pytest.raises(ValidationError) as error:
+        AppConfig.model_validate(user_config)
+    assert "invalid zone_id" in str(error)
+
+# properties
+# ==========
+# raid
+# ====
+def test_raid_config(valid_config):
+    """Test that config.raid returns the correct dictionary from constants.py."""
+    assert valid_config.raid == RAIDS[valid_config.zone_id]
+
+# cache_path
+# ============
+def test_cache_path(valid_config):
+    """Test that config.cache_path generates the correct nested path."""
+    path = Path(".cache") / str(valid_config.guild_id) / str(valid_config.zone_id)
+    assert valid_config.cache_path == path

@@ -1,17 +1,155 @@
-import json, calendar, zoneinfo
-from datetime import datetime, timedelta
+import json, zoneinfo
+from datetime import time, datetime, timedelta
 from pathlib import Path
+from pydantic import BaseModel, Field, field_validator, ValidationInfo
+from typing import Optional
 from domain.constants import RAIDS
 
-def load_config(path: str = "config.json")->dict: 
-    """ Load user settings from config.json 
-        verify required fields
-        create derivitave fields 
-            regular = { "name": name, "server": server, "region": region }
-            raid = { "name": raid_name, "final_boss": {"id": id, "name": boss_name }}
-            schedule datetime info
-            cache_path_r
-    """   
+class AltConfig(BaseModel):
+    name: str
+    server: str
+    region: str
+
+class ScheduleConfig(BaseModel):
+    days: set[int]
+    start_est: time
+    end_est: time
+
+    @field_validator("days", mode="before")
+    @classmethod
+    def days_to_int(cls, v):
+        """convert day names to weekday integers (monday=1)"""
+        if not isinstance(v, (list, set)):
+            raise ValueError("days must be a list/set of day names/numbers(1=mon)")
+
+        day_nums = {
+            "monday": 1, "tuesday": 2, "wednesday": 3, "thursday": 4,
+            "friday": 5, "saturday": 6, "sunday":7
+        }
+        day_int_set = set()
+        for day in v:
+            if type(day) is int and day in range(1, 8):
+                day_int_set.add(day)
+                continue
+            if not isinstance(day, str):
+                raise ValueError(f"days must be strings, not {type(day)}")
+            day_lower = day.strip().lower()
+            if day_lower not in day_nums:
+                raise ValueError(f"invalid day name: {day}")
+            day_int_set.add(day_nums[day_lower])
+        return day_int_set
+
+    def includes(self, time_ms: int)->bool:
+        """ check if a schedule-duration block of time 
+            starting at time_ms overlaps with a 
+            scheduled time block
+        """
+        if not time_ms:
+            return False
+        
+        est = zoneinfo.ZoneInfo("America/New_York")
+        time_dt = datetime.fromtimestamp(time_ms / 1000.0, tz=est)
+
+        time_2k = datetime.combine(datetime(2000, 1, 1).date(), time_dt.time())
+        start_2k = datetime.combine(datetime(2000, 1, 1).date(), self.start_est)
+        end_2k = datetime.combine(datetime(2000, 1, 1).date(), self.end_est)
+
+        log_day = time_dt.date()   # for scheduled day verification
+ 
+        # Handle overnight schedules
+        overnight = self.start_est > self.end_est       
+        if overnight:
+            end_2k += timedelta(days=1)
+            # handle time after midnight
+            if time_dt.time() < self.end_est:
+                log_day -= timedelta(days=1)
+                time_2k += timedelta(days=1)
+
+        # verify scheduled day
+        if log_day.isoweekday() not in self.days:
+            return False
+
+        # verify scheduled time overlap
+        duration = end_2k - start_2k
+        return ( time_2k < end_2k and (time_2k + duration) > start_2k )
+
+
+class AppConfig(BaseModel):
+    guild_name: Optional[str] = None
+    guild_id: int
+    region: str = "US"
+    zone_id: int
+    schedule: Optional[ScheduleConfig] = None
+    anchor_alt: AltConfig
+    has_alts: dict[str, list[AltConfig]] = Field(default_factory=dict)
+    cache_root: Path = Field(default=Path(".cache"))
+    chunk_size: int = 10
+
+    @field_validator("region")
+    @classmethod
+    def check_region(cls, v: str) -> str:
+        """confirm valid wow region"""
+        v_upper = v.strip().upper()
+        wow_regions = ["US", "EU", "KR", "TW", "CN"]
+        if v_upper not in wow_regions:
+            raise ValueError(f"invalid region '{v}'. Must be one of: {', '.join(wow_regions)}")
+        return v_upper
+
+    @field_validator("anchor_alt", mode="before")
+    @classmethod
+    def name_to_alt(cls, v: str, info: ValidationInfo) -> dict:
+        """ convert name-server string into 
+            AltConfig compatible dict
+        """
+        if not isinstance(v, str):
+            return v
+        if "-" not in v:
+            raise ValueError(f"invalid name format: {v} != 'name-server'")
+        name, server = v.split("-", maxsplit=1)
+        region = info.data.get("region", "US")
+        return {"name": name, "server": server, "region": region}
+
+    @field_validator("has_alts", mode="before")
+    @classmethod
+    def import_alts(cls, v: dict, info: ValidationInfo):
+        """validate main name format and convert alt list"""
+        if not isinstance(v, dict):
+            return {}
+        imported = {}
+        for main, alt_list in v.items():
+            if not isinstance(main, str):
+                raise ValueError(f"player name, {main} in config has_alts, is not a string")
+            if not isinstance(alt_list, list):
+                raise ValueError(f"alts for {main} must be a list of strings")
+            imported[main] = [cls.name_to_alt(alt, info) for alt in alt_list]
+        return imported
+
+    @field_validator("zone_id")
+    @classmethod
+    def check_zone(cls, v):
+        """make sure zone_id refers to a valid raid tier"""
+        if v not in RAIDS:
+            raise ValueError("invalid zone_id, see zone reference in README")
+        return v
+
+    @property
+    def raid(self) -> dict:
+        """get raid info from constants.py"""
+        return RAIDS[self.zone_id]
+
+    @property
+    def cache_path(self) -> Path:
+        """get dynamic/resolved path for API response cache"""
+        return self.cache_root / str(self.guild_id) / str(self.zone_id)
+
+    def scheduled(self, time_ms: int) -> bool:
+        """check the schedule, true if no schedule"""
+        if self.schedule is None:
+            return True
+        return self.schedule.includes(time_ms)
+
+def load_config(path: str = "config.json")->AppConfig:
+    """ Load user settings from config.json """   
     # verify path
     config_path = Path(path)
     if not config_path.exists():
@@ -21,125 +159,4 @@ def load_config(path: str = "config.json")->dict:
     with config_path.open('r', encoding='utf-8') as f:
         config = json.load(f)
 
-    # verify config fields exist
-    # required for current "clean sweep" code retrieval in extract_codes
-    config_fields = ["zone_id", "guild_id", "regular"]
-    for field in config_fields:
-        if field not in config or not config[field]:
-            raise ValueError(f"'{field}' must be defined in {config_path}")
-
-    # verify valid 'regular' format (name-server)
-    name_server = config.get("regular")
-    if not isinstance(name_server, str) or "-" not in name_server:
-        raise ValueError(f"invalid 'regular' format {name_server} != 'name-server'")
-    # replace with valid dictionary version
-    [name, server] = name_server.split("-", maxsplit=2)
-    config["regular"] = {"name": name, "server": server, "region": config.get("region")}
-        
-    # verify valid guild_id?
-
-    # verify valid zone_id
-    zone_id = config["zone_id"]
-    if zone_id not in RAIDS:
-        raise ValueError("invalid zone_id, see zone:raid key in README")
-    # add raid info to config
-    config["raid"] = RAIDS[zone_id]
-    
-    # check schedule and convert to datetime format
-    if "schedule" in config:
-        config["schedule"] = prep_schedule(config["schedule"])
-
-    # add path for JSON cache
-    guild_id = str(config['guild_id'])
-    zone_id = str(config['zone_id'])
-    config["cache_path_r"] = Path(".cache") / guild_id / zone_id
-        
-    return config
-
-def prep_schedule(schedule: dict)->dict:
-    """ return prepped schedule with 
-        normalized values for date/time comparison
-        generic datetimes, no date info, no timezone 
-
-        schedule = {"days": [ weekday_string_list ], "start_est": "HH:MM", "end_est": "HH:MM"}
-        prep = {"days": [ Weekday_String_List ], "start": datetime, "end": datetime, "overnight": bool}
-    """
-    if not schedule or not isinstance(schedule, dict):
-        return {}
-    needed_fields = ["days", "start_est", "end_est"]
-    for field in needed_fields:
-        if field not in schedule or not schedule[field]:
-            raise ValueError(f'schedule must define "{field}"')
-    
-    prep = {}
-    try:
-        # create datetime objects for start and end times
-        prep["start"] = datetime.strptime(schedule["start_est"], "%H:%M")
-        prep["end"] = datetime.strptime(schedule["end_est"], "%H:%M")
-    except ValueError:
-        raise ValueError('invalid raid time. correct time format "HH:MM" 24hr')
-
-    # increment end day if schedule goes overnight
-    prep["overnight"] = prep["end"] < prep["start"]
-    if prep["overnight"]:
-        prep["end"] += timedelta(days=1)
-
-    # normalize and validate day names
-    if not isinstance(schedule["days"], list):
-        raise ValueError('"days" must be a list[ of "day", "names"]')
-    day_names = set(calendar.day_name)
-    prep["days"] = []
-    for name in schedule["days"]:
-        name = name.capitalize()
-        if name not in day_names:
-            raise ValueError(f'"{name}" not in {day_names}')
-        prep["days"].append(name)
-    
-    return prep
-
-
-def on_schedule(start_ms: float, schedule: dict)->bool:
-    """ check if start_ms coincides with 
-        scheduled days and times
-        no time -> False
-        no schedule -> True
-
-        schedule = {
-            "days":      [ "MONDAY", "TUESDAY", ... ],
-            "start":     datetime, 
-            "end":       datetime, 
-            "overnight": bool
-    """
-    if not start_ms:
-        return False
-    if not schedule or not isinstance(schedule, dict):
-        return True
-    
-    est = zoneinfo.ZoneInfo("America/New_York")
-    start = datetime.fromtimestamp(start_ms / 1000.0, tz=est)
-    schedule_start = schedule.get("start")
-    schedule_end = schedule.get("end")
-
-    # Handle overnight schedules
-    start_day = start.date()            # for scheduled day verification
-    schedule_day = schedule_start.day   # for time comparison
-    if schedule.get("overnight") and start.time() < schedule_end.time():
-        # if start was after midnight but still within schedule
-        start_day -= timedelta(days=1)
-        schedule_day += 1
-
-    # verify scheduled day
-    day_name = start_day.strftime("%A")
-    on_schedule_day = day_name in schedule.get("days", [])
-
-    # verify scheduled time overlap
-    duration = schedule_end - schedule_start
-    start_time = start.replace(day=schedule_day, 
-                                month=schedule_start.month, 
-                                year=schedule_start.year, 
-                                tzinfo=schedule_start.tzinfo)
-    end_time = start_time + duration
-    at_schedule_time = ( start_time < schedule_end and 
-                        end_time > schedule_start )
-
-    return on_schedule_day and at_schedule_time
+    return AppConfig.model_validate(config)

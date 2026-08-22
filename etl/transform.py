@@ -1,11 +1,11 @@
-from services.config import on_schedule
 from services.cache import load_cache
 from etl.parser import safe_get, parse_fights, parse_players
 from domain.constants import FIGHTS_CACHE_NAME, PLAYERS_CACHE_NAME, ROLE_NAMES
 from domain.models import Pull, Alt, Friend
+from services.config import AppConfig
 
 class Transformer:
-    def __init__(self, config: dict):
+    def __init__(self, config: AppConfig):
         self.config = config
         self.log_times = {}  # { code: time }
         self.pulls = []      # [ Pulls ]
@@ -65,19 +65,17 @@ class Transformer:
         fight_logs = parse_fights(fights_json)
         if not fight_logs or not isinstance(fight_logs, dict):
             raise ValueError(f"missing fight data, parser returned {fight_logs}")
-
-        config_zone = safe_get(self.config, ["zone_id"])
-        schedule = safe_get(self.config, ["schedule"])
+        
         for code, log  in fight_logs.items():
             # log = { "time": time, "zone_id": id, "fights": [{fights_info}] } }
 
             # raid filter
             log_zone = safe_get(log, ["zone_id"])
-            if log_zone != config_zone:
+            if log_zone != self.config.zone_id:
                 continue
 
             # schedule filter
-            if schedule and not on_schedule(log["time"], schedule):
+            if not self.config.scheduled(log["time"]):
                 continue
 
             # store filtered timestamp
@@ -102,7 +100,7 @@ class Transformer:
             filter out subseqent logs/pulls
         """
         # get boss for kill cutoff
-        final_boss_id = safe_get(self.config, ["raid", "final_boss", "id"], None)
+        final_boss_id = safe_get(self.config.raid, ["final_boss", "id"], None)
         if not final_boss_id:
             return
         
@@ -256,7 +254,8 @@ class Transformer:
         # default: every alt is a part of it's own friend group
         friend_groups = {guid: {guid} for guid in self.alts}
         # if alts are defined in config, combine them into one group
-        for main_name, alt_names in self.config["has_alts"].items():
+        for main_name, alts in self.config.has_alts.items():
+            alt_names = [f"{alt.name}-{alt.server}" for alt in alts]
             main_guid = self.name_to_guid(main_name)
             if not main_guid:
                 # still group alts if main not present

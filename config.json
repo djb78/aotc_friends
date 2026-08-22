@@ -3,7 +3,7 @@
     "guild_id": 780772,
     "region": "US",
     "zone_id":  46,
-    "regular": "Stiff-Area52",
+    "anchor_alt": "Stiff-Area52",
     "schedule": {
         "days": ["tuesday", "saturday"],
         "start_est": "20:00",

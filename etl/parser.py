@@ -49,7 +49,7 @@ def parse_unique_codes(codes_json: dict) -> list:
     for report in safe_get(data, ["reportData", "reports", "data"], []):
         if (code := safe_get(report, ["code"])):
             unique_codes.add(code)
-    # recent report codes (last 100 reports uploaded by the 'regular' character)
+    # recent report codes (last 100 reports uploaded by anchor_alt)
     for report in safe_get(data, ["characterData", "character", "recentReports", "data"], []):
         if (code := safe_get(report, ["code"])):
             unique_codes.add(code)

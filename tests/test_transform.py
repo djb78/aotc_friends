@@ -1,6 +1,8 @@
 import pytest, copy
+from datetime import time
 from unittest.mock import MagicMock, patch
 from etl.transform import Transformer
+from services.config import ScheduleConfig, AppConfig
 from domain.models import Alt
 
 class MockPull:
@@ -35,11 +37,9 @@ def test_transform_all(valid_config):
 
 # transform_fights_pulls
 # ======================
-@patch("etl.transform.on_schedule")
 @patch("etl.transform.parse_fights")
 @patch("etl.transform.load_cache")
-def test_transform_fights_pulls_success(mock_load_cache, mock_parse_fights, mock_on_schedule, valid_config):
-    mock_on_schedule.return_value = True
+def test_transform_fights_pulls_success(mock_load_cache, mock_parse_fights, valid_config):
     mock_parse_fights.return_value = {
         "log01": {
             "time": 1000000,
@@ -59,7 +59,7 @@ def test_transform_fights_pulls_success(mock_load_cache, mock_parse_fights, mock
                   "friendlyPlayers": [5001, 5002, 5003] }
             ] } }
     t = Transformer(valid_config)
-    t.config["schedule"] = { "fake_time": 1111111111 }
+    t.config.schedule = None
 
     t.transform_fights_pulls()
 
@@ -80,10 +80,9 @@ def test_transform_fights_pulls_success(mock_load_cache, mock_parse_fights, mock
     assert pull.boss == {"id": 101, "name": "Eranog"}
     assert pull.roster == [5001, 5002, 5003]
 
-@patch("etl.transform.on_schedule")
 @patch("etl.transform.parse_fights")
 @patch("etl.transform.load_cache")
-def test_transform_fights_pulls_schedule(mock_load_cache, mock_parse_fights, mock_on_schedule, valid_config):
+def test_transform_fights_pulls_schedule(mock_load_cache, mock_parse_fights, valid_config):
     mock_parse_fights.return_value = {
         "log01": {
             "time": 1000000,
@@ -107,9 +106,14 @@ def test_transform_fights_pulls_schedule(mock_load_cache, mock_parse_fights, moc
                   "difficulty": 4,
                   "friendlyPlayers": [5001, 5002, 5003] }
             ] } } 
-    mock_on_schedule.side_effect =  lambda time, schedule: time == 1000000
+    
     t = Transformer(valid_config)
-    t.config["schedule"] = { "fake_time": 1111111111 }
+
+    t.config.schedule = ScheduleConfig(
+        days=["wednesday"],
+        start_est=time(19, 0),
+        end_est=time(19, 25)
+    )
 
     t.transform_fights_pulls()
 
@@ -120,10 +124,10 @@ def test_transform_fights_pulls_schedule(mock_load_cache, mock_parse_fights, moc
     assert t.pulls[0].log == "log01"
 
 # filter_aotc_prog
-def test_filter_aotc_prog_success(valid_config, valid_log_times):
+def test_filter_prog_success(valid_config, valid_log_times):
     t = Transformer(valid_config)
     t.log_times = valid_log_times
-    t.config["raid"] = {"final_boss": {"id": 666}}
+    t.config.raid["final_boss"]["id"] = 666
     pulls = {
     "prog01": MockPull("log01"),
     "prog02": MockPull("log01"),
@@ -151,7 +155,7 @@ def test_filter_aotc_prog_success(valid_config, valid_log_times):
 def test_filter_aotc_prog_no_kill(valid_config, valid_log_times):
     t = Transformer(valid_config)
     t.log_times = valid_log_times
-    t.config["raid"] = {"final_boss": {"id": 666}}
+    t.config.raid["final_boss"]["id"] = 666
     pulls = {
     "prog01": MockPull("log01"),
     "prog02": MockPull("log01"),
@@ -381,7 +385,6 @@ def test_transform_alts_friends_specs(valid_config):
     assert alt.specs["Subtlety"]["sightings"] == 10
 
 def test_transform_alts_friends_missing_main(valid_config):
-    t = Transformer(valid_config)
 
     alt1 = Alt(1)
     alt1.name = "Kickymcfisto"
@@ -393,11 +396,12 @@ def test_transform_alts_friends_missing_main(valid_config):
     alt2.server = "Area52"
     alt2.sightings = 5
 
-    t.alts = {1: alt1, 2: alt2}
+    config_dict = valid_config.model_dump()
+    config_dict["has_alts"] = { "Stiff-Area52": ["Darkbark-Area52", "Kickymcfisto-Area52"] }
+    alt_config = AppConfig.model_validate(config_dict)
 
-    t.config["has_alts"] = {
-        "Stiff-Area52": ["Darkbark-Area52", "Kickymcfisto-Area52"]
-    }
+    t = Transformer(alt_config)
+    t.alts = {1: alt1, 2: alt2}
 
     t.transform_alts_friends()
 
