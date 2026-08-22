@@ -1,6 +1,6 @@
-from services.file_io import load_cache
+from services.file_io import load_cache, FIGHTS_CACHE, PLAYERS_CACHE
 from etl.parser import safe_get, parse_fights, parse_players
-from domain.constants import FIGHTS_CACHE_NAME, PLAYERS_CACHE_NAME, ROLE_NAMES
+from domain.constants import ROLE_NAMES
 from domain.models import Pull, Alt, Friend
 from services.config import AppConfig
 
@@ -61,7 +61,7 @@ class Transformer:
         """
         # get dictionary of fight logs
         # log_fights = { log_code: log }
-        fights_json = load_cache(self.config, FIGHTS_CACHE_NAME)
+        fights_json = load_cache(self.config, FIGHTS_CACHE)
         fight_logs = parse_fights(fights_json)
         if not fight_logs or not isinstance(fight_logs, dict):
             raise ValueError(f"missing fight data, parser returned {fight_logs}")
@@ -141,7 +141,7 @@ class Transformer:
             sighting:                    {"guid", "role", "specs", ...
         """
         # { log_code: { player_id: [ {spec_sighting}, {},  ] }
-        players_json = load_cache(self.config, PLAYERS_CACHE_NAME)
+        players_json = load_cache(self.config, PLAYERS_CACHE)
         parsed_data = parse_players(players_json)
 
         for pull in self.pulls:

@@ -1,4 +1,4 @@
-import json, zoneinfo
+import zoneinfo
 from datetime import time, datetime, timedelta
 from pathlib import Path
 from pydantic import BaseModel, Field, field_validator, ValidationInfo
@@ -147,16 +147,3 @@ class AppConfig(BaseModel):
         if self.schedule is None:
             return True
         return self.schedule.includes(time_ms)
-
-def load_config(path: str = "config.json")->AppConfig:
-    """ Load user settings from config.json """   
-    # verify path
-    config_path = Path(path)
-    if not config_path.exists():
-        raise FileNotFoundError(f"missing config file: {config_path}")
-
-    # load config.json
-    with config_path.open('r', encoding='utf-8') as f:
-        config = json.load(f)
-
-    return AppConfig.model_validate(config)

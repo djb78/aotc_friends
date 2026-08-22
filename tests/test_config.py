@@ -1,27 +1,9 @@
-import json, pytest
+import pytest
 from pathlib import Path
 from pydantic import ValidationError
-from services.config import load_config, AppConfig, AltConfig, ScheduleConfig
+from services.config import AppConfig, AltConfig, ScheduleConfig
 from domain.constants import RAIDS
 
-# load_config
-# ==========================================
-def test_load_config_success(tmp_path, user_config):
-        """ test: reads a json file and returns AppConfig """
-        config_file = tmp_path / "config.json"
-        with config_file.open("w", encoding="utf-8") as f:
-            json.dump(user_config, f)
-
-        # Run the function
-        config = load_config(path=str(config_file))
-
-        assert isinstance(config, AppConfig)
-        assert config.guild_id == user_config["guild_id"]
-        assert config.zone_id == user_config["zone_id"]
-
-def test_load_config_missing_file():
-     with pytest.raises(FileNotFoundError):
-         load_config("missing.json")
 
 # ScheduleConfig
 # ==========================================

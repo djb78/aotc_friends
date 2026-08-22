@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from etl.extract import Extractor
-from domain.constants import CODES_CACHE_NAME, FIGHTS_CACHE_NAME, PLAYERS_CACHE_NAME
+from services.file_io import CODES_CACHE, FIGHTS_CACHE, PLAYERS_CACHE
 
 @pytest.fixture
 def mock_client():
@@ -62,7 +62,7 @@ def test_extract_codes_success(mock_load_cache, mock_save_cache, mock_client, va
     ex.extract_codes()
     mock_load_cache.assert_called_once_with(
         valid_config, 
-        CODES_CACHE_NAME
+        CODES_CACHE
     )
     assert mock_client.query.called
 
@@ -73,7 +73,7 @@ def test_extract_codes_success(mock_load_cache, mock_save_cache, mock_client, va
 
     mock_save_cache.assert_called_once_with(
         valid_config,
-        CODES_CACHE_NAME,
+        CODES_CACHE,
         mock_client.query.return_value
     )
 
@@ -89,7 +89,7 @@ def test_extract_codes_cached(mock_load_cache, mock_save_cache, mock_client, val
 
     mock_load_cache.assert_called_once_with(
         valid_config,
-        CODES_CACHE_NAME
+        CODES_CACHE
     )
 
     assert not mock_client.query.called
@@ -111,18 +111,18 @@ def mock_codes_json():
 @patch("etl.extract.save_cache")
 @patch("etl.extract.load_cache")
 def test_extract_fights_success(mock_load_cache, mock_save_cache, mock_client, valid_config, mock_codes_json):
-    """Test: load json from CODES_CACHE_NAME,
+    """Test: load json from CODES_CACHE,
     parse codes from json, 
     query WSL with aliased fights queries for each code, 
-    save response to FIGHTS_CACHE_NAME"""
+    save response to FIGHTS_CACHE"""
     mock_load_cache.side_effect = [None, mock_codes_json]
 
     e = Extractor(mock_client, valid_config)
     e.extract_fights()
 
     assert mock_load_cache.call_count == 2
-    mock_load_cache.assert_any_call(valid_config, FIGHTS_CACHE_NAME)
-    mock_load_cache.assert_any_call(valid_config, CODES_CACHE_NAME)
+    mock_load_cache.assert_any_call(valid_config, FIGHTS_CACHE)
+    mock_load_cache.assert_any_call(valid_config, CODES_CACHE)
 
     assert mock_client.query.called
     called_query = mock_client.query.call_args[0][0]
@@ -132,7 +132,7 @@ def test_extract_fights_success(mock_load_cache, mock_save_cache, mock_client, v
 
     mock_save_cache.assert_called_once_with(
         valid_config,
-        FIGHTS_CACHE_NAME,
+        FIGHTS_CACHE,
         mock_client.query.return_value
     )
 
@@ -147,7 +147,7 @@ def test_extract_fights_cached(mock_load_cache, mock_save_cache, mock_client, va
 
     mock_load_cache.assert_called_once_with(
         valid_config, 
-        FIGHTS_CACHE_NAME
+        FIGHTS_CACHE
     )
     assert not mock_client.query.called
     assert not mock_save_cache.called
@@ -156,8 +156,8 @@ def test_extract_fights_cached(mock_load_cache, mock_save_cache, mock_client, va
 @patch("etl.extract.load_cache")
 def test_extract_fights_no_codes(mock_load_cache, mock_save_cache, mock_client, valid_config):
     """ Test: codes and fights caches are empty, 
-        check FIGHTS_CACHE_NAME, doesn't exist, continue.
-        check CODES_CACHE_NAME, doedn't exist, can't continue.
+        check FIGHTS_CACHE, doesn't exist, continue.
+        check CODES_CACHE, doedn't exist, can't continue.
         do nothing 
     """
     mock_load_cache.side_effect = [None, {}]
@@ -233,7 +233,7 @@ def test_extract_players_success(mock_load_cache, mock_save_cache, mock_client, 
 
     assert mock_load_cache.call_count == 2
     assert mock_client.query.call_count == 2
-    mock_save_cache.assert_called_once_with(valid_config, PLAYERS_CACHE_NAME, mock_response_merged)
+    mock_save_cache.assert_called_once_with(valid_config, PLAYERS_CACHE, mock_response_merged)
 
 @patch("etl.extract.save_cache")
 @patch("etl.extract.load_cache")
@@ -246,7 +246,7 @@ def test_extract_players_cached(mock_load_cache, mock_save_cache, mock_client, v
 
     mock_load_cache.assert_called_once_with(
         valid_config, 
-        PLAYERS_CACHE_NAME
+        PLAYERS_CACHE
     )
     assert not mock_client.query.called
     assert not mock_save_cache.called
@@ -255,8 +255,8 @@ def test_extract_players_cached(mock_load_cache, mock_save_cache, mock_client, v
 @patch("etl.extract.load_cache")
 def test_extract_players_no_fights(mock_load_cache, mock_save_cache, mock_client, valid_config):
     """ Test: fights and players caches are empty, 
-        check PLAYERS_CACHE_NAME, doesn't exist, continue.
-        check FIGHTS_CACHE_NAME, doedn't exist, can't continue.
+        check PLAYERS_CACHE, doesn't exist, continue.
+        check FIGHTS_CACHE, doedn't exist, can't continue.
         do nothing 
     """
     mock_load_cache.side_effect = [None, {}]
@@ -300,7 +300,7 @@ def test_extract_players_bad_batch(mock_load_cache, mock_save_cache, mock_client
         e.extract_players()
 
         assert mock_client.query.call_count == 2
-        mock_save_cache.assert_called_once_with(valid_config, PLAYERS_CACHE_NAME, good_batch)
+        mock_save_cache.assert_called_once_with(valid_config, PLAYERS_CACHE, good_batch)
 
         mock_client.reset_mock()
         mock_save_cache.reset_mock()

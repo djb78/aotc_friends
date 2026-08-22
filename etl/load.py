@@ -5,15 +5,14 @@ class Loader:
         self.config = config
         self.friends = friends
 
-    def load_friends(self):
+
+    def load_friends(self)->str:
         """ coordinator, prepare data and generate markdown """
         if not self.friends or not isinstance(self.friends, list):
-            self.save_output("### no friends")
-            return
+            return "### no friends"
 
         sorted_friends = self.sort_friends()
-        friends_md = self.to_markdown(sorted_friends)
-        self.save_output(friends_md)
+        return self.to_markdown(sorted_friends)
 
 
     def sort_friends(self)->list:
@@ -29,6 +28,7 @@ class Loader:
 
         return sorted(self.friends, key=get_key, reverse=True)
 
+
     def specs_to_markdown(self, alt) -> str:
         """ properly format a markdown string based on spec info """
         # alt specs markdown
@@ -41,6 +41,7 @@ class Loader:
             spec_md = ""
         spec_md += " | " if spec_md else ""
         return spec_md
+
 
     def to_markdown(self, friends: list) -> str:
         """ create a markdown list of friends """
@@ -83,10 +84,3 @@ class Loader:
 
         return "\n".join(md for md in final_md)
 
-    def save_output(self, md: str, path="friends.md"):
-        """ write markdown string to file """
-        if not md or not isinstance(md, str):
-            return
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(md)
-        print(f"report successfully generated at {path}")

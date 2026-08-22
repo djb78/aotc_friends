@@ -1,6 +1,5 @@
-from services.file_io import save_cache, load_cache
+from services.file_io import save_cache, load_cache, CODES_CACHE, FIGHTS_CACHE, PLAYERS_CACHE
 from services.config import AppConfig, AltConfig
-from domain.constants import CODES_CACHE_NAME, FIGHTS_CACHE_NAME, PLAYERS_CACHE_NAME
 from etl.parser import parse_unique_codes, parse_fight_ids, safe_get
 
 class Extractor:
@@ -47,8 +46,8 @@ class Extractor:
                 }
         """
         # check for existing cache
-        if load_cache(self.config, CODES_CACHE_NAME):
-            print(f"    {CODES_CACHE_NAME}.json exists, extraction aborted.")
+        if load_cache(self.config, CODES_CACHE):
+            print(f"    {CODES_CACHE}.json exists, extraction aborted.")
             return 
 
         # use config data to construct GraphQL query
@@ -72,8 +71,8 @@ class Extractor:
         query += "}"	
 
         # query API and cache response
-        self.extract_query(query, CODES_CACHE_NAME)
-        print(f"    extraction complete, saved to {CODES_CACHE_NAME}.json")
+        self.extract_query(query, CODES_CACHE)
+        print(f"    extraction complete, saved to {CODES_CACHE}.json")
 
     def extract_fights(self):
         """ uses codes from extract_codes cache
@@ -99,12 +98,12 @@ class Extractor:
             difficulty
         """
         # check for existing fight info cache
-        if load_cache(self.config, FIGHTS_CACHE_NAME):
-            print(f"    {FIGHTS_CACHE_NAME}.json exists, extraction aborted.")
+        if load_cache(self.config, FIGHTS_CACHE):
+            print(f"    {FIGHTS_CACHE}.json exists, extraction aborted.")
             return
 
         # load the cache created by extract_codes
-        codes_json = load_cache(self.config, CODES_CACHE_NAME)
+        codes_json = load_cache(self.config, CODES_CACHE)
         if not codes_json:
             return
         # retrieve list of codes
@@ -136,8 +135,8 @@ class Extractor:
 
         # cache merged chunk responses
         merged_response = {"data": {"reportData": chunk_responses}}
-        save_cache(self.config, FIGHTS_CACHE_NAME, merged_response)
-        print(f"    extraction complete, saved to {FIGHTS_CACHE_NAME}.json")
+        save_cache(self.config, FIGHTS_CACHE, merged_response)
+        print(f"    extraction complete, saved to {FIGHTS_CACHE}.json")
 
 
     def extract_players(self):
@@ -153,12 +152,12 @@ class Extractor:
                 }}
         """
         # check for existing cache
-        if load_cache(self.config, PLAYERS_CACHE_NAME):
-            print(f"    {PLAYERS_CACHE_NAME}.json exists, extraction aborted.")
+        if load_cache(self.config, PLAYERS_CACHE):
+            print(f"    {PLAYERS_CACHE}.json exists, extraction aborted.")
             return
 
         # losd the cache created by extract_fights
-        fights_json = load_cache(self.config, FIGHTS_CACHE_NAME)
+        fights_json = load_cache(self.config, FIGHTS_CACHE)
         if not fights_json:
             return 
         # retrieve codes and fight ids
@@ -191,5 +190,5 @@ class Extractor:
 
         # cache merged chunk responses
         merged_response = {"data": {"reportData": chunk_responses}}
-        save_cache(self.config, PLAYERS_CACHE_NAME, merged_response)
-        print(f"    extraction complete, saved to {PLAYERS_CACHE_NAME}")
+        save_cache(self.config, PLAYERS_CACHE, merged_response)
+        print(f"    extraction complete, saved to {PLAYERS_CACHE}")

@@ -30,12 +30,3 @@ def test_to_markdown(valid_config, sample_friends):
     assert "  5 | Hopeseller-Area52 | Arcane | Mage"
 
 
-def test_save_output(tmp_path, valid_config, sample_friends):
-    """ writes markdown file to disk """
-    l = Loader(valid_config, sample_friends)
-    test_file = tmp_path / "test_friends.md"
-
-    l.save_output("# Test Report", path=str(test_file))
-
-    assert test_file.exists()
-    assert test_file.read_text(encoding="utf-8") == "# Test Report"
