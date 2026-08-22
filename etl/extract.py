@@ -1,6 +1,6 @@
 from services.file_io import save_cache, load_cache, CODES_CACHE, FIGHTS_CACHE, PLAYERS_CACHE
 from domain.schema import AppConfig, AltConfig
-from etl.parser import parse_unique_codes, parse_fight_ids, safe_get
+from etl.parse import parse_unique_codes, parse_fight_ids, safe_get
 
 class Extractor:
     def __init__(self, client, config: AppConfig):

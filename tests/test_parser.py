@@ -1,5 +1,5 @@
 import pytest
-from etl.parser import safe_get, parse_unique_codes, parse_fight_ids, parse_fights, parse_players
+from etl.parse import safe_get, parse_unique_codes, parse_fight_ids, parse_fights, parse_players
 
 def test_safe_get():
     """ Test: recursive dictionary navigation and safe defaults """
