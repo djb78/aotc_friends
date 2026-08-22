@@ -1,4 +1,4 @@
-from services.cache import save_cache, load_cache
+from services.file_io import save_cache, load_cache
 
 # cache
 def test_save_load_cache(tmp_path, valid_config):

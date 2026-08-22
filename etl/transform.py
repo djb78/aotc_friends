@@ -1,4 +1,4 @@
-from services.cache import load_cache
+from services.file_io import load_cache
 from etl.parser import safe_get, parse_fights, parse_players
 from domain.constants import FIGHTS_CACHE_NAME, PLAYERS_CACHE_NAME, ROLE_NAMES
 from domain.models import Pull, Alt, Friend
