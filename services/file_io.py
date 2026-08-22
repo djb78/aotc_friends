@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from services.config import AppConfig
+from domain.schema import AppConfig
 
 # JSON cache filenames
 CODES_CACHE = "codes"

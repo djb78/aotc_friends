@@ -1,6 +1,6 @@
 import json, pytest
 from services.file_io import load_config, save_cache, load_cache, save_output
-from services.config import AppConfig
+from domain.schema import AppConfig
 
 
 # load_config

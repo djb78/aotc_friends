@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 from pydantic import ValidationError
-from services.config import AppConfig, AltConfig, ScheduleConfig
+from domain.schema import AppConfig, AltConfig, ScheduleConfig
 from domain.constants import RAIDS
 
 

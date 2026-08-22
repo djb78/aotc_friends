@@ -1,6 +1,6 @@
 import pytest, zoneinfo
 from datetime import datetime
-from services.config import AppConfig
+from domain.schema import AppConfig
 from domain.models import Alt, Friend
 
 @pytest.fixture

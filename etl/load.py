@@ -1,4 +1,4 @@
-from services.config import AppConfig
+from domain.schema import AppConfig
 
 class Loader:
     def __init__(self, config: AppConfig, friends: list):

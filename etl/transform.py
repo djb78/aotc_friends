@@ -2,7 +2,7 @@ from services.file_io import load_cache, FIGHTS_CACHE, PLAYERS_CACHE
 from etl.parser import safe_get, parse_fights, parse_players
 from domain.constants import ROLE_NAMES
 from domain.models import Pull, Alt, Friend
-from services.config import AppConfig
+from domain.schema import AppConfig
 
 class Transformer:
     def __init__(self, config: AppConfig):

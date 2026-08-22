@@ -2,7 +2,7 @@ import pytest, copy
 from datetime import time
 from unittest.mock import MagicMock, patch
 from etl.transform import Transformer
-from services.config import ScheduleConfig, AppConfig
+from domain.schema import ScheduleConfig, AppConfig
 from domain.models import Alt
 
 class MockPull:
