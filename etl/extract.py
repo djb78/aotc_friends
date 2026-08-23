@@ -1,4 +1,4 @@
-from services.file_io import save_cache, load_cache, CODES_CACHE, FIGHTS_CACHE, PLAYERS_CACHE
+from services.file_io import save_codes, load_codes, save_fights, load_fights, save_players, load_players
 from domain.schema import AppConfig, AltConfig
 from etl.parse import parse_unique_codes, parse_fight_ids, safe_get
 
@@ -8,10 +8,6 @@ class Extractor:
         self.config = config
         self.chunk_size = config.chunk_size
 
-    def extract_query(self, query: str, cache_name: str):
-        """ wrapper for querying API and saving to cache """
-        response = self.client.query(query)
-        save_cache(self.config, cache_name, response)
 
     def chunk_list(self, unchunked: list) -> list[list]:
         """ turns a list into chunk_size chunks """
@@ -46,8 +42,8 @@ class Extractor:
                 }
         """
         # check for existing cache
-        if load_cache(self.config, CODES_CACHE):
-            print(f"    {CODES_CACHE}.json exists, extraction aborted.")
+        if load_codes(self.config):
+            print(f"    cache exists, extraction aborted.")
             return 
 
         # use config data to construct GraphQL query
@@ -71,8 +67,9 @@ class Extractor:
         query += "}"	
 
         # query API and cache response
-        self.extract_query(query, CODES_CACHE)
-        print(f"    extraction complete, saved to {CODES_CACHE}.json")
+        response = self.client.query(query)
+        save_codes(self.config, response)
+        print(f"    extraction complete, saved to cache")
 
     def extract_fights(self):
         """ uses codes from extract_codes cache
@@ -98,12 +95,12 @@ class Extractor:
             difficulty
         """
         # check for existing fight info cache
-        if load_cache(self.config, FIGHTS_CACHE):
-            print(f"    {FIGHTS_CACHE}.json exists, extraction aborted.")
+        if load_fights(self.config):
+            print(f"    cache exists, extraction aborted.")
             return
 
         # load the cache created by extract_codes
-        codes_json = load_cache(self.config, CODES_CACHE)
+        codes_json = load_codes(self.config)
         if not codes_json:
             return
         # retrieve list of codes
@@ -135,8 +132,8 @@ class Extractor:
 
         # cache merged chunk responses
         merged_response = {"data": {"reportData": chunk_responses}}
-        save_cache(self.config, FIGHTS_CACHE, merged_response)
-        print(f"    extraction complete, saved to {FIGHTS_CACHE}.json")
+        save_fights(self.config, merged_response)
+        print(f"    extraction complete, saved to cache")
 
 
     def extract_players(self):
@@ -152,21 +149,21 @@ class Extractor:
                 }}
         """
         # check for existing cache
-        if load_cache(self.config, PLAYERS_CACHE):
-            print(f"    {PLAYERS_CACHE}.json exists, extraction aborted.")
+        if load_players(self.config):
+            print(f"    cache exists, extraction aborted.")
             return
 
         # losd the cache created by extract_fights
-        fights_json = load_cache(self.config, FIGHTS_CACHE)
+        fights_json = load_fights(self.config)
         if not fights_json:
             return 
         # retrieve codes and fight ids
-        code_ids = parse_fight_ids(fights_json)
-        if not isinstance(code_ids, dict):
+        fight_ids = parse_fight_ids(fights_json)
+        if not isinstance(fight_ids, dict):
             return
 
         # create chunks
-        chunks = self.chunk_list(list(code_ids.items()))
+        chunks = self.chunk_list(list(fight_ids.items()))
         
         # collect responses to chunk queryies
         chunk_responses = {}
@@ -190,5 +187,5 @@ class Extractor:
 
         # cache merged chunk responses
         merged_response = {"data": {"reportData": chunk_responses}}
-        save_cache(self.config, PLAYERS_CACHE, merged_response)
-        print(f"    extraction complete, saved to {PLAYERS_CACHE}")
+        save_players(self.config, merged_response)
+        print(f"    extraction complete, saved to cache")

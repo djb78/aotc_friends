@@ -7,6 +7,9 @@ CODES_CACHE = "codes"
 FIGHTS_CACHE = "fights"
 PLAYERS_CACHE = "players"
 
+# CONFIG
+# =======================================
+# load_config
 def load_config(path: str = "config.json")->AppConfig:
     """ Load user settings from config.json """   
     # verify path
@@ -20,15 +23,43 @@ def load_config(path: str = "config.json")->AppConfig:
 
     return AppConfig.model_validate(config)
 
-def save_cache(config: AppConfig, cache_name: str, json_export: dict):
+# OUTPUT
+# =======================================
+# save_output
+def save_output(md: str, path="friends.md"):
+    """ write a string to a file """
+    if not md or not isinstance(md, str):
+        return
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(md)
+    print(f"report successfully generated at {path}")
+
+# CACHE
+# =======================================
+# save_cache
+def save_cache(config: AppConfig, cache_name: str, api_response: dict):
+    """attempts to write api_response to cache_name"""
     cache_file = config.cache_path / f"{cache_name}.json"
     cache_file.parent.mkdir(parents=True, exist_ok=True)
 
     with cache_file.open("w", encoding="utf-8") as f:
-        json.dump(json_export, f, indent=4)
+        json.dump(api_response, f, indent=4)
 
-        
+def save_fights(config: AppConfig, api_response: dict):
+    """attempts to save api_response to FIGHTS_CACHE"""
+    return save_cache(config, FIGHTS_CACHE, api_response)
+
+def save_codes(config: AppConfig, api_response: dict):
+    """attempts to save api_response to CODES_CACHE"""
+    return save_cache(config, CODES_CACHE, api_response)
+
+def save_players(config: AppConfig, api_response: dict):
+    """attempts to save api_response to PLAYERS_CACHE"""
+    return save_cache(config, PLAYERS_CACHE, api_response)
+
+# load_cache
 def load_cache(config: AppConfig, cache_name: str)->dict:
+    """attempts to load cache_name, {} on fail"""
     cache_file = config.cache_path / f"{cache_name}.json"
     if not cache_file.exists():
         return {}		
@@ -40,11 +71,14 @@ def load_cache(config: AppConfig, cache_name: str)->dict:
             print(f"{cache_file} corrupted")
             return {}
 
+def load_fights(config: AppConfig)->dict:
+    """attempts to load FIGHTS_CACHE"""
+    return load_cache(config, FIGHTS_CACHE)
 
-def save_output(md: str, path="friends.md"):
-    """ write a string to a file """
-    if not md or not isinstance(md, str):
-        return
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(md)
-    print(f"report successfully generated at {path}")
+def load_codes(config: AppConfig)->dict:
+    """attempts to load CODES_CACHE"""
+    return load_cache(config, CODES_CACHE)
+
+def load_players(config: AppConfig)->dict:
+    """attempts to load PLAYERS_CACHE"""
+    return load_cache(config, PLAYERS_CACHE)

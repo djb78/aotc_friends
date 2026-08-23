@@ -22,6 +22,7 @@ def valid_log_times():
     }
 
 def test_transform_all(valid_config):
+    """test: all transform pipeline methods are called"""
     t = Transformer(valid_config)
 
     t.transform_fights_pulls = MagicMock()
@@ -38,8 +39,9 @@ def test_transform_all(valid_config):
 # transform_fights_pulls
 # ======================
 @patch("etl.transform.parse_fights")
-@patch("etl.transform.load_cache")
-def test_transform_fights_pulls_success(mock_load_cache, mock_parse_fights, valid_config):
+@patch("etl.transform.load_fights")
+def test_transform_fights_pulls_success(mock_load_fights, mock_parse_fights, valid_config):
+    mock_load_fights.return_value = {"json": "mock"}
     mock_parse_fights.return_value = {
         "log01": {
             "time": 1000000,
@@ -81,8 +83,9 @@ def test_transform_fights_pulls_success(mock_load_cache, mock_parse_fights, vali
     assert pull.roster == [5001, 5002, 5003]
 
 @patch("etl.transform.parse_fights")
-@patch("etl.transform.load_cache")
-def test_transform_fights_pulls_schedule(mock_load_cache, mock_parse_fights, valid_config):
+@patch("etl.transform.load_fights")
+def test_transform_fights_pulls_schedule(mock_load_fights, mock_parse_fights, valid_config):
+    mock_load_fights.return_value = {"json": "mock"}
     mock_parse_fights.return_value = {
         "log01": {
             "time": 1000000,
@@ -170,8 +173,9 @@ def test_filter_aotc_prog_no_kill(valid_config, valid_log_times):
 
 # transform_pulls_alts
 @patch("etl.transform.parse_players")
-@patch("etl.transform.load_cache")
-def test_transform_pulls_alts_success(mock_load_cache, mock_parse_players, valid_config):
+@patch("etl.transform.load_players")
+def test_transform_pulls_alts_success(mock_load_players, mock_parse_players, valid_config):
+    mock_load_players.return_value = {"mock": "json"}
     mock_parse_players.return_value = {
         "log01": {
             10: [{"guid": 5003, "name": "Nightroud"}],
@@ -198,8 +202,9 @@ def test_transform_pulls_alts_success(mock_load_cache, mock_parse_players, valid
     assert pull01.roster == [5003, 5005]
 
 @patch("etl.transform.parse_players")
-@patch("etl.transform.load_cache")
-def test_transform_pulls_alts_missing_guid(mock_load_cache, mock_parse_players, valid_config):
+@patch("etl.transform.load_players")
+def test_transform_pulls_alts_missing_guid(mock_load_players, mock_parse_players, valid_config):
+    mock_load_players.return_value = {"mock": "json"}
     mock_parse_players.return_value = {
         "log01": {
             10: [{"guid": None}],

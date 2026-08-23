@@ -6,7 +6,7 @@ class Loader:
         self.friends = friends
 
 
-    def load_friends(self)->str:
+    def load_output(self)->str:
         """ coordinator, prepare data and generate markdown """
         if not self.friends or not isinstance(self.friends, list):
             return "### no friends"

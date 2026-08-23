@@ -18,10 +18,9 @@ def main():
     t.transform_all()
 
     l = Loader(config, t.friends)
-    output = l.load_friends()
+    output = l.load_output()
 
     save_output(output)
-
 
 if __name__ == "__main__":
     main()
