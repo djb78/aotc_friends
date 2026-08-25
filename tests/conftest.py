@@ -100,3 +100,154 @@ def make_ms(make_dt):
         return make_dt(weekday, time_str).timestamp() * 1000
 
     return _make_ms
+
+# mock json caches
+# ================
+@pytest.fixture
+def mock_codes_cache():
+    """ sample structure from actual API response 
+        QoL values
+    """
+    return {
+    "data": {
+        "reportData": {
+            "reports": { "data": [
+                    { "code": "code_0" },
+                    { "code": "code_1" } ]
+        } },
+        "characterData": {
+            "character": { "recentReports": { "data": [
+                    { "code": "code_2" },
+                    { "code": "code_3" } ]
+        } } }
+    } }
+
+@pytest.fixture
+def mock_fights_cache():
+    """ sample structure from actual API response 
+        QoL values
+    """
+    return {
+    "data": {
+        "reportData": {
+            "alias_a": {
+                "code": "code_0",
+                "zone": { "id": 46 },
+                "startTime": 0,
+                "fights": []
+            },
+            "alias_b": {
+                "code": "code_1",
+                "zone": { "id": 46 },
+                "startTime": 100,
+                "fights": [
+                    {   "id": 1,
+                        "encounterID": 100,
+                        "name": "Boss_100",
+                        "kill": False,
+                        "friendlyPlayers": [1, 2, 3],
+                        "difficulty": 4
+                    },
+                    {   "id": 2,
+                        "encounterID": 100,
+                        "name": "Boss_100",
+                        "kill": True,
+                        "friendlyPlayers": [1, 2, 3],
+                        "difficulty": 4
+                    } ]
+            },
+            "alias_c": {
+                "code": "code_2",
+                "zone": { "id": 46 },
+                "startTime": 200,
+                "fights": [
+                    {
+                        "id": 1,
+                        "encounterID": 200,
+                        "name": "Boss_200",
+                        "kill": False,
+                        "friendlyPlayers": [40, 20],
+                        "difficulty": 4
+                    } ]
+            }
+    } } }
+
+@pytest.fixture
+def mock_players_cache():
+    """ sample structure from actual API response 
+        QoL values
+    """
+    return { "data": { "reportData": {
+        "alias_a": {
+            "code": "code_1",
+            "playerDetails": { "data": { "playerDetails": {
+                "healers": [
+                    {   "name": "flex_1000",
+                        "id": 1,
+                        "guid": 1000,
+                        "type": "flex_class",
+                        "server": "Server",
+                        "region": "US",
+                        "icon": "class-spec",
+                        "specs": [{ "spec": "heal_spec_1", "count": 1 }] }
+                ],
+                "dps": [
+                    {   "name": "flex_1000",
+                        "id": 1,
+                        "guid": 1000,
+                        "type": "flex_class",
+                        "server": "Server",
+                        "region": "US",
+                        "icon": "class-spec",
+                        "specs": [{ "spec": "dps_spec_1", "count": 1 }] 
+                    },
+                    {   "name": "dps_2000",
+                        "id": 2,
+                        "guid": 2000,
+                        "type": "dps_class",
+                        "server": "Server",
+                        "region": "US",
+                        "icon": "class-spec",
+                        "specs": [
+                                { "spec": "dps_spec_1", "count": 1 },
+                                { "spec": "dps_spec_2", "count": 1 }] 
+                    }
+                ],
+                "tanks": [
+                    {   "name": "tank_3000",
+                        "id": 3,
+                        "guid": 3000,
+                        "type": "tank_class",
+                        "server": "Server",
+                        "region": "US",
+                        "icon": "class-spec",
+                        "specs": [{ "spec": "tank_spec_1", "count": 2 }] }
+                ] } } } },
+        "alias_b": {
+            "code": "code_2",
+            "playerDetails": { "data": { 
+                "playerDetails": {
+                    "healers": [
+                        {   "name": "heal_4000",
+                            "id": 40,
+                            "guid": 4000,
+                            "type": "heal_class",
+                            "server": "Server",
+                            "region": "US",
+                            "icon": "class-spec",
+                            "specs": [{ "spec": "heal_spec_1", "count": 1 }] } 
+                    ], 
+                    "tanks": [], 
+                    "dps": [
+                        {   "name": "dps_2000",
+                            "id": 20,
+                            "guid": 2000,
+                            "type": "dps_class",
+                            "server": "Server",
+                            "region": "US",
+                            "icon": "class-spec",
+                            "specs": [{ "spec": "dps_spec_1", "count": 1 }] }
+                    ] 
+        } } } }
+    } } }
+
