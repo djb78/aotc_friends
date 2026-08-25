@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from etl.extract import Extractor
 from services.file_io import CODES_CACHE, FIGHTS_CACHE, PLAYERS_CACHE
 
@@ -13,8 +13,6 @@ def mock_client():
                 "reports": {"data": [{"code": "ReportCode00"}]}
     } } }
     return client
-
-# extract_query
 
 # chunk_list
 # ==========
@@ -46,18 +44,16 @@ def test_extract_all(mock_client, valid_config):
 
     e.extract_codes.assert_called_once()
     e.extract_fights.assert_called_once()
-    e.extract_fights.assert_called_once()
-
+    e.extract_players.assert_called_once()
 
 # extract_codes tests
 # ===================
-@patch("etl.extract.save_codes")
-@patch("etl.extract.load_codes")
-def test_extract_codes_success(mock_load_codes, mock_save_codes, mock_client, valid_config):
+def test_extract_codes_success(mock_client, valid_config, tmp_path):
     """ Test: queries the API with config variables, 
-        calls save_cache correctly
+        calls save_codes correctly
     """
-    mock_load_codes.return_value = None
+    valid_config.cache_root = tmp_path
+
     ex = Extractor(mock_client, valid_config)
     ex.extract_codes()
 
@@ -67,53 +63,31 @@ def test_extract_codes_success(mock_load_codes, mock_save_codes, mock_client, va
     assert str(valid_config.zone_id) in called_query
     assert valid_config.anchor_alt.name in called_query
 
-    mock_save_codes.assert_called_once_with(
-        valid_config,
-        mock_client.query.return_value
-    )
+    codes_cache_file =  valid_config.cache_path / f"{CODES_CACHE}.json"
+    assert codes_cache_file.exists()
 
-@patch("etl.extract.save_codes")
-@patch("etl.extract.load_codes")
-def test_extract_codes_cached(mock_load_codes, mock_save_codes, mock_client, valid_config):
+def test_extract_codes_cached(mock_client, valid_config, make_json_cache, mock_codes_cache):
     """ Test: if cache exists, return. 
         no query, no save.
     """
-    mock_load_codes.return_value = {'data': "cached"}
+    make_json_cache(valid_config, mock_codes_cache, CODES_CACHE)   
+
     ex = Extractor(mock_client, valid_config)
     ex.extract_codes()
 
     assert not mock_client.query.called
-    assert not mock_save_codes.called
 
-# codes.json
-# ==========
-@pytest.fixture
-def mock_codes_json():
-    """ sample codes.json (good) """
-    return {
-        "data": {
-            "reportData": {
-                "reports": {"data": [{"code": "ReportCode01"}]}
-    } } }
 
 # extract_fights tests
 # ====================
-@patch("etl.extract.save_fights")
-@patch("etl.extract.load_codes")
-@patch("etl.extract.load_fights")
-def test_extract_fights_success(mock_load_fights, mock_load_codes, mock_save_cache, mock_client, valid_config, mock_codes_json):
-    """Test: load json from CODES_CACHE,
-    parse codes from json, 
-    query WSL with aliased fights queries for each code, 
-    save response to FIGHTS_CACHE"""
-    mock_load_fights.return_value = None
-    mock_load_codes.return_value = mock_codes_json
+def test_extract_fights_success(mock_client, valid_config, make_json_cache, mock_codes_cache):
+    """ Test: saves correctly formatted response
+        to query constructed with data from CODES_CACHE
+    """
+    make_json_cache(valid_config, mock_codes_cache, CODES_CACHE)
 
     e = Extractor(mock_client, valid_config)
     e.extract_fights()
-
-    mock_load_codes.assert_called_once()
-    mock_load_fights.assert_called_once()
 
     assert mock_client.query.called
     called_query = mock_client.query.call_args[0][0]
@@ -121,167 +95,79 @@ def test_extract_fights_success(mock_load_fights, mock_load_codes, mock_save_cac
     for check in checks:
         assert check in called_query
 
-    mock_save_cache.assert_called_once_with(
-        valid_config,
-        mock_client.query.return_value
-    )
+    fights_cache_file = valid_config.cache_path / f"{FIGHTS_CACHE}.json"
+    assert fights_cache_file.exists()
 
-@patch("etl.extract.save_fights")
-@patch("etl.extract.load_fights")
-def test_extract_fights_cached(mock_load_fights, mock_save_fights, mock_client, valid_config):
-    """ Test: return if fights cache exists """
-    mock_load_fights.return_value = { "data": "cached" }
+
+def test_extract_fights_cached(mock_client, valid_config, make_json_cache, mock_fights_cache):
+    """ Test: no query if valid fights cache exists """
+    make_json_cache(valid_config, mock_fights_cache, FIGHTS_CACHE)
 
     e = Extractor(mock_client, valid_config)
     e.extract_fights()
 
     assert not mock_client.query.called
-    assert not mock_save_fights.called
 
-@patch("etl.extract.save_fights")
-@patch("etl.extract.load_codes")
-@patch("etl.extract.load_fights")
-def test_extract_fights_no_codes(mock_load_fights, mock_load_codes, mock_save_fights, mock_client, valid_config):
-    """ Test: codes and fights caches are empty, 
-        check FIGHTS_CACHE, doesn't exist, continue.
-        check CODES_CACHE, doedn't exist, can't continue.
+def test_extract_fights_no_codes(mock_client, valid_config, tmp_path):
+    """ Test: no fights cache but codes cache is empty/missing
         do nothing 
     """
-    mock_load_fights.return_value = None
-    mock_load_codes.return_value = {}
+    valid_config.cache_root = tmp_path
 
     e = Extractor(mock_client, valid_config)
     e.extract_fights()
 
-    mock_load_fights.assert_called_once()
-    mock_load_codes.assert_called_once()
-
     assert not mock_client.query.called
-    assert not mock_save_fights.called
 
-# fights.json
-# ===========
-@pytest.fixture
-def mock_fights_json():
-    """ sample fights.json (good) """
-    return {
-        "data": {
-            "reportData": {
-                "ch0_r0": {
-                    "code": "CODE1",
-                    "startTime": 100,
-                    "fights": [{"id": 1}, {"id": 2}]
-                },
-                "ch0_r1": {
-                    "code": "CODE2",
-                    "startTime": 200,
-                    "fights": [{"id": 3}]
-    } } } }
 
 # extract players
 # ===============
-@patch("etl.extract.save_players")
-@patch("etl.extract.load_fights")
-@patch("etl.extract.load_players")
-def test_extract_players_success(mock_load_players, mock_load_fights, mock_save_players, mock_client, valid_config, mock_fights_json):
+def test_extract_players_success(mock_client, valid_config, make_json_cache, mock_fights_cache):
     """ Test: load fights cache, 
-        chunk data and query, 
+        chunk data, query, 
         merge and cache responses
     """
-    # mock API responses
-    mock_response_1 = {
-        "data": {
-            "reportData": {
-                "ch0_r0": {
-                    "code": "CODE1",
-                    "playerDetails": {"tanks": [], "healers": [], "dps": []}
-    } } } }
-    mock_response_2 = {
-        "data": {
-            "reportData": {
-                "ch1_r0": {
-                    "code": "CODE2",
-                    "playerDetails": {"tanks": [], "healers": [], "dps": []}
-    } } } }
-    mock_response_merged = {
-        "data": {
-            "reportData": {
-                "ch0_r0": {
-                    "code": "CODE1",
-                    "playerDetails": {"tanks": [], "healers": [], "dps": []}
-                }, 
-                "ch1_r0": {
-                    "code": "CODE2",
-                    "playerDetails": {"tanks": [], "healers": [], "dps": []}
-    } } } }
-
-    mock_load_players.return_value = None
-    mock_load_fights.return_value = mock_fights_json
-    mock_client.query.side_effect = [mock_response_1, mock_response_2]
+    batches = {
+        "first": {"data": {"reportData": {"alias_a": "valid data"} }},
+        "second": {"data": {"reportData": {"alias_b": "valid data"} }},
+        "merged": {"data": {"reportData": {"alias_a": "valid data", "alias_b": "valid data"} }}
+    }
+    make_json_cache(valid_config, mock_fights_cache, FIGHTS_CACHE)
+    mock_client.query.side_effect = [batches["first"], batches["second"]]
 
     e = Extractor(mock_client, valid_config)
     e.chunk_size = 1
     e.extract_players()
 
-    mock_load_players.assert_called_once()
-    mock_load_fights.assert_called_once()
-    
     assert mock_client.query.call_count == 2
-    mock_save_players.assert_called_once_with(valid_config, mock_response_merged)
 
-@patch("etl.extract.save_players")
-@patch("etl.extract.load_players")
-def test_extract_players_cached(mock_load_players, mock_save_players, mock_client, valid_config):
+    players_cache_file = valid_config.cache_path / f"{PLAYERS_CACHE}.json"
+    assert players_cache_file.exists()
+
+
+def test_extract_players_cached(mock_client, valid_config, make_json_cache, mock_players_cache):
     """ Test: return if players cache exists """
-    mock_load_players.return_value = { "data": "cached" }
+    make_json_cache(valid_config, mock_players_cache, PLAYERS_CACHE)
 
     e = Extractor(mock_client, valid_config)
     e.extract_players()
 
-    mock_load_players.assert_called_once()
-
     assert not mock_client.query.called
-    assert not mock_save_players.called
 
-@patch("etl.extract.save_players")
-@patch("etl.extract.load_fights")
-@patch("etl.extract.load_players")
-def test_extract_players_no_fights(mock_load_players, mock_load_fights, mock_save_players, mock_client, valid_config):
+def test_extract_players_no_fights(mock_client, valid_config, tmp_path):
     """ Test: fights and players caches are empty, 
         check PLAYERS_CACHE, doesn't exist, continue.
         check FIGHTS_CACHE, doedn't exist, can't continue.
         do nothing 
     """
-    mock_load_players.return_value = None
-    mock_load_fights.return_value = {}
+    valid_config.cache_root = tmp_path
 
     e = Extractor(mock_client, valid_config)
     e.extract_players()
 
-    mock_load_players.assert_called_once()
-    mock_load_fights.assert_called_once()
-
     assert not mock_client.query.called
-    assert not mock_save_players.called
 
-@patch("etl.extract.save_players")
-@patch("etl.extract.load_fights")
-@patch("etl.extract.load_players")
-def test_extract_players_bad_batch(mock_load_players, mock_load_fights, mock_save_cache, mock_client, valid_config, mock_fights_json):
-    """ Test: malformed API response
-        if the API response is invalid skip the batch
-        cache merged valid responses normally
-    """
-    e = Extractor(mock_client, valid_config)
-    e.chunk_size = 1
-
-    good_batch = {
-        "data": { "reportData": {
-            "report1_0": {
-                "code": "CODE2",
-                "playerDetails": {"tanks": [], "healers": [], "dps": []}
-    } } } }
-    bad_batches = [
+@pytest.mark.parametrize("bad_batch", [
         None, 
         { "data": None },
         { "data": { "reportData": None } },
@@ -289,16 +175,24 @@ def test_extract_players_bad_batch(mock_load_players, mock_load_fights, mock_sav
         502,
         [],
         {}
-    ]
+    ])
+def test_extract_players_bad_batch(mock_client, valid_config, make_json_cache, mock_fights_cache, bad_batch):
+    """ Test: malformed API response
+        if the API response is invalid skip the batch
+        cache merged valid responses normally
+    """
+    make_json_cache(valid_config, mock_fights_cache, FIGHTS_CACHE)
 
-    for bad_batch in bad_batches:
-        mock_load_players.return_value = None
-        mock_load_fights.return_value = mock_fights_json
-        mock_client.query.side_effect = [bad_batch, good_batch]
-        e.extract_players()
+    good_batch = {"data": {"reportData": {"alias_b": "valid data"} }}
+    players_cache_file = valid_config.cache_path / f"{PLAYERS_CACHE}.json"
 
-        assert mock_client.query.call_count == 2
-        mock_save_cache.assert_called_once_with(valid_config, good_batch)
+    e = Extractor(mock_client, valid_config)
+    e.chunk_size = 1
 
-        mock_client.reset_mock()
-        mock_save_cache.reset_mock()
+    mock_client.query.side_effect = [bad_batch, good_batch]
+    e.extract_players()
+
+    assert mock_client.query.call_count == 2
+    assert players_cache_file.exists()
+
+

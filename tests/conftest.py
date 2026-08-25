@@ -1,4 +1,4 @@
-import pytest, zoneinfo
+import pytest, zoneinfo, json
 from datetime import datetime
 from domain.schema import AppConfig
 from domain.models import Alt, Friend
@@ -100,6 +100,18 @@ def make_ms(make_dt):
         return make_dt(weekday, time_str).timestamp() * 1000
 
     return _make_ms
+
+@pytest.fixture
+def make_json_cache(tmp_path):
+    """ factory fixture, dumps cache_json to tmp_path for testing """
+    def _make_json_cache(config: AppConfig, cache_json: dict, cache_name: str):
+        config.cache_root = tmp_path
+        cache_file = config.cache_path / f"{cache_name}.json"
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        with cache_file.open("w", encoding="utf-8") as f:
+            json.dump(cache_json, f)
+
+    return _make_json_cache
 
 # mock json caches
 # ================
