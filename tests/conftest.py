@@ -10,7 +10,7 @@ def user_config():
         "guild_name": "The Secret Duck Society",
         "guild_id": 123456,
         "region": "US",
-        "zone_id": 35,
+        "zone_id": 46,
         "anchor_alt": "Stiff-Area52",
         "schedule": {
             "days": ["tuesday", "saturday"],

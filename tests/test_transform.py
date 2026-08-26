@@ -1,9 +1,10 @@
 import pytest, copy
 from datetime import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+from services.file_io import FIGHTS_CACHE, PLAYERS_CACHE
 from etl.transform import Transformer
 from domain.schema import ScheduleConfig, AppConfig
-from domain.models import Alt
+from domain.models import Alt, Pull
 
 class MockPull:
     def __init__(self, log):
@@ -38,93 +39,59 @@ def test_transform_all(valid_config):
 
 # transform_fights_pulls
 # ======================
-@patch("etl.transform.parse_fights")
-@patch("etl.transform.load_fights")
-def test_transform_fights_pulls_success(mock_load_fights, mock_parse_fights, valid_config):
-    mock_load_fights.return_value = {"json": "mock"}
-    mock_parse_fights.return_value = {
-        "log01": {
-            "time": 1000000,
-            "zone_id": 35,
-            "fights": [
-                { "id": 1, 
-                  "kill": False, 
-                  "encounterID": 101, 
-                  "name": "Eranog", 
-                  "difficulty": 4,
-                  "friendlyPlayers": [5001, 5002] },
-                { "id": 2,
-                  "kill": True,
-                  "encounterID": 101,
-                  "name": "Eranog",
-                  "difficulty": 4,
-                  "friendlyPlayers": [5001, 5002, 5003] }
-            ] } }
+def test_transform_fights_pulls_success(valid_config, make_json_cache, mock_fights_cache):
+    make_json_cache(valid_config, mock_fights_cache, FIGHTS_CACHE)
+
+    log_b = mock_fights_cache["data"]["reportData"]["alias_b"]
+    log_c = mock_fights_cache["data"]["reportData"]["alias_c"]
+
     t = Transformer(valid_config)
     t.config.schedule = None
 
     t.transform_fights_pulls()
 
-    assert t.log_times == {"log01": 1000000}
-    assert len(t.pulls) == 2
+    assert t.log_times == {
+        log_b["code"]: log_b["startTime"],
+        log_c["code"]: log_c["startTime"]
+    }
 
-    pull = t.pulls[0]
-    assert pull.log == "log01"
-    assert pull.id == 1
-    assert pull.kill is False
-    assert pull.boss == {"id": 101, "name": "Eranog"}
-    assert pull.roster == [5001, 5002]
+    assert len(t.pulls) == len(log_b["fights"]) + len(log_c["fights"])
 
-    pull = t.pulls[1]
-    assert pull.log == "log01"
-    assert pull.id == 2
-    assert pull.kill is True
-    assert pull.boss == {"id": 101, "name": "Eranog"}
-    assert pull.roster == [5001, 5002, 5003]
+    first_pull = t.pulls[0]
+    assert first_pull.log == "code_1"
+    assert first_pull.id == 1
 
-@patch("etl.transform.parse_fights")
-@patch("etl.transform.load_fights")
-def test_transform_fights_pulls_schedule(mock_load_fights, mock_parse_fights, valid_config):
-    mock_load_fights.return_value = {"json": "mock"}
-    mock_parse_fights.return_value = {
-        "log01": {
-            "time": 1000000,
-            "zone_id": 35,
-            "fights": [
-                { "id": 1, 
-                  "kill": False, 
-                  "encounterID": 101, 
-                  "name": "Eranog", 
-                  "difficulty": 4,
-                  "friendlyPlayers": [5001, 5002] }
-            ] },
-        "log02": {
-            "time": 2000000,
-            "zone_id": 35,
-            "fights": [
-                { "id": 2,
-                  "kill": True,
-                  "encounterID": 101,
-                  "name": "Eranog",
-                  "difficulty": 4,
-                  "friendlyPlayers": [5001, 5002, 5003] }
-            ] } } 
-    
-    t = Transformer(valid_config)
 
-    t.config.schedule = ScheduleConfig(
-        days=["wednesday"],
-        start_est=time(19, 0),
-        end_est=time(19, 25)
+def test_transform_fights_pulls_schedule(valid_config, make_json_cache, mock_fights_cache, make_ms):
+    valid_config.schedule = ScheduleConfig(
+        days=["tuesday", "saturday"],
+        start_est="20:00",
+        end_est="22:00"
     )
+    on_schedule = make_ms("Tuesday", "20:04")
+    off_schedule = make_ms("wednesday", "20:15")
+
+    fights = copy.deepcopy(mock_fights_cache)
+    log_b = fights["data"]["reportData"]["alias_b"]
+    log_c = fights["data"]["reportData"]["alias_c"]
+
+    two_fights = log_b["code"]
+    log_b["startTime"] = on_schedule
+    one_fight = log_c["code"]
+    log_c["startTime"] = off_schedule
+
+    make_json_cache(valid_config, fights, FIGHTS_CACHE)
+    t = Transformer(valid_config)
 
     t.transform_fights_pulls()
 
-    assert "log01" in t.log_times
-    assert "log02" not in t.log_times
+    assert two_fights in t.log_times
+    assert t.log_times[two_fights] == on_schedule
+    assert one_fight not in t.log_times
 
-    assert len(t.pulls) == 1
-    assert t.pulls[0].log == "log01"
+    assert len(t.pulls) == 2
+    for pull in t.pulls:
+        assert pull.log == two_fights
 
 # filter_aotc_prog
 def test_filter_prog_success(valid_config, valid_log_times):
@@ -172,62 +139,65 @@ def test_filter_aotc_prog_no_kill(valid_config, valid_log_times):
     assert len(t.log_times) == 3
 
 # transform_pulls_alts
-@patch("etl.transform.parse_players")
-@patch("etl.transform.load_players")
-def test_transform_pulls_alts_success(mock_load_players, mock_parse_players, valid_config):
-    mock_load_players.return_value = {"mock": "json"}
-    mock_parse_players.return_value = {
-        "log01": {
-            10: [{"guid": 5003, "name": "Nightroud"}],
-            20: [{"guid": 5005, "name": "Joefutofu"}]
-        }
-    }
+def test_transform_pulls_alts_success(valid_config, make_json_cache, mock_players_cache):
+    """ converts roster to guids, creates alts list """
+    make_json_cache(valid_config, mock_players_cache, PLAYERS_CACHE)
 
     t = Transformer(valid_config)
-    def mock_update_alt(log, sighting):
-        guid = sighting.get("guid")
-        if guid:
-            mock_alt = MagicMock()
-            mock_alt.sightings = 0
-            t.alts[guid] = mock_alt
-        return guid
-    t.update_alt = MagicMock(side_effect=mock_update_alt)
 
-    pull01 = MockPull("log01")
-    pull01.roster = [10, 20]
-    t.pulls = [pull01]
-    t.transform_pulls_alts()
-
-    assert t.update_alt.call_count == 2
-    assert pull01.roster == [5003, 5005]
-
-@patch("etl.transform.parse_players")
-@patch("etl.transform.load_players")
-def test_transform_pulls_alts_missing_guid(mock_load_players, mock_parse_players, valid_config):
-    mock_load_players.return_value = {"mock": "json"}
-    mock_parse_players.return_value = {
-        "log01": {
-            10: [{"guid": None}],
-            20: [{"guid": 5005}]
-        }
+    t.log_times = {
+        "code_1": 100000,
+        "code_2": 200000
     }
-    t = Transformer(valid_config)
-    def mock_update_alt(log, sighting):
-        guid = sighting.get("guid")
-        if guid:
-            mock_alt = MagicMock()
-            mock_alt.sightings = 0
-            t.alts[guid] = mock_alt
-        return guid
-    t.update_alt = MagicMock(side_effect=mock_update_alt)
 
-    pull01 = MockPull("log01")
-    pull01.roster = [10, 20]
-    t.pulls = [pull01]
+    pull1 = Pull("code_1", 1)
+    pull1.roster = [1, 2, 3]
+
+    pull2 = Pull("code_2", 2)
+    pull2.roster = [20, 40]
+
+    t.pulls = [pull1, pull2]
+
     t.transform_pulls_alts()
 
-    assert t.update_alt.call_count == 2
-    assert pull01.roster == [5005]
+    assert pull1.roster == [1000, 2000, 3000]
+    assert pull2.roster == [2000, 4000]
+
+    assert 1000 in t.alts
+    assert 2000 in t.alts
+    assert 3000 in t.alts
+    assert 4000 in t.alts
+
+    assert t.alts[1000].sightings == 1
+    assert t.alts[2000].sightings == 2
+    assert t.alts[3000].sightings == 1
+    assert t.alts[4000].sightings == 1
+
+
+def test_transform_pulls_alts_missing_guid(valid_config, make_json_cache, mock_players_cache):
+    alt_roles = mock_players_cache["data"]["reportData"]["alias_a"]["playerDetails"]["data"]["playerDetails"]
+    alt_roles["tanks"][0]["guid"] = None    # only guid 3000 spec
+    alt_roles["dps"][0]["guid"] = None      # 1/2 guid 1000 specs
+    make_json_cache(valid_config, mock_players_cache, PLAYERS_CACHE)
+
+    t = Transformer(valid_config)
+    t.log_times = {"code_1": 100000, "code_2": 200000}
+
+    pull1 = Pull("code_1", 1)
+    pull1.roster = [1, 2, 3]
+    pull2 = Pull("code_2", 2)
+    pull2.roster = [20, 40]
+    t.pulls = [pull1, pull2]
+
+    t.transform_pulls_alts()
+
+    assert pull1.roster == [1000, 2000]
+    assert pull2.roster == [2000, 4000]
+
+    assert 1000 in t.alts
+    assert 2000 in t.alts
+    assert 4000 in t.alts
+    assert None not in t.alts
 
 # update_alt
 # ==============
@@ -235,13 +205,13 @@ def test_transform_pulls_alts_missing_guid(mock_load_players, mock_parse_players
 def valid_sighting():
     """ valid base sighting for tests """
     return {
-        "guid": 5001,
-        "name": "Upsetdruid",
-        "server": "Area-52",
+        "guid": 3000,
+        "name": "Tank_3000",
+        "server": "Server",
         "region": "US",
-        "type": "Druid",
-        "role": "healer",
-        "specs": [{"spec": "Restoration", "count": 5}]
+        "type": "tank_class",
+        "role": "tank",
+        "specs": [{"spec": "tank_spec", "count": 5}]
     }
 
 def test_update_alt_invalid(valid_config, valid_log_times):
@@ -262,14 +232,14 @@ def test_update_alt_new(valid_config, valid_sighting, valid_log_times):
     t.log_times = valid_log_times
 
     guid = t.update_alt("log01", valid_sighting)
-    assert guid == 5001
+    assert guid == 3000
     alt = t.alts[guid]
-    assert alt.name == "Upsetdruid"
-    assert alt.server == "Area-52"
+    assert alt.name == "Tank_3000"
+    assert alt.server == "Server"
     assert alt.region == "US"
-    assert alt.type == "Druid"
-    assert "Restoration" in alt.specs
-    assert alt.specs["Restoration"] == {"role": "healer", "log_counts": {"log01": 5}}
+    assert alt.type == "tank_class"
+    assert "tank_spec" in alt.specs
+    assert alt.specs["tank_spec"] == {"role": "tank", "log_counts": {"log01": 5}}
 
 
 def test_update_alt_same_spec(valid_config, valid_sighting, valid_log_times):
@@ -282,27 +252,27 @@ def test_update_alt_same_spec(valid_config, valid_sighting, valid_log_times):
     sighting = copy.deepcopy(valid_sighting)
 
     guid = t.update_alt("log01", sighting)
-    assert guid == 5001
+    assert guid == 3000
     alt = t.alts[guid]
-    assert alt.specs["Restoration"]["log_counts"]["log01"] == 5
+    assert alt.specs["tank_spec"]["log_counts"]["log01"] == 5
 
     # same log different fight, just increment sightings
     t.update_alt("log01", sighting)
-    assert alt.specs["Restoration"]["log_counts"]["log01"] == 5
+    assert alt.specs["tank_spec"]["log_counts"]["log01"] == 5
 
     # same log different fight, different/missing count, ignore
-    sighting["specs"] = [{"spec": "Restoration", "count": None}]
+    sighting["specs"] = [{"spec": "tank_spec", "count": None}]
     t.update_alt("log01", sighting)
-    assert alt.specs["Restoration"]["log_counts"]["log01"] == 5
+    assert alt.specs["tank_spec"]["log_counts"]["log01"] == 5
 
-    sighting["specs"] = [{"spec": "Restoration", "count": 8}]
+    sighting["specs"] = [{"spec": "tank_spec", "count": 8}]
     t.update_alt("log01", sighting)
-    assert alt.specs["Restoration"]["log_counts"]["log01"] == 5
+    assert alt.specs["tank_spec"]["log_counts"]["log01"] == 5
 
     # different log = new log_count
     t.update_alt("log02", sighting)
-    assert alt.specs["Restoration"]["log_counts"]["log01"] == 5
-    assert alt.specs["Restoration"]["log_counts"]["log02"] == 8
+    assert alt.specs["tank_spec"]["log_counts"]["log01"] == 5
+    assert alt.specs["tank_spec"]["log_counts"]["log02"] == 8
 
 def test_update_alt_multi_spec(valid_config, valid_sighting, valid_log_times):
     """ new specs are added, """
@@ -310,29 +280,25 @@ def test_update_alt_multi_spec(valid_config, valid_sighting, valid_log_times):
     t.log_times = valid_log_times
 
     sighting = copy.deepcopy(valid_sighting)
-    sighting["name"] = "Anonymoose"
-    sighting["guid"] = 5002
-    sighting["server"] = "Ursin"
-    sighting["role"] = "tanks"
-    sighting["specs"] = [{"spec": "Guardian", "count": 4}]
-
-    guid = t.update_alt("log01", sighting)
-    assert guid == 5002
-    alt = t.alts[guid]
-    assert alt.specs["Guardian"]["log_counts"]["log01"] == 4
-
-    sighting["role"] = "dps"
-    sighting["specs"] = [{"spec": "Feral", "count": 3}]
-    t.update_alt("log01", sighting)
-    assert alt.specs["Guardian"]["log_counts"]["log01"] == 4
-    assert alt.specs["Feral"]["log_counts"]["log01"] == 3
+    sighting["name"] = "Flex_1000"
+    sighting["guid"] = 1000
+    sighting["server"] = "Server"
 
     sighting["role"] = "healers"
-    sighting["specs"] = [{"spec": "Restoration", "count": 6}]
-    t.update_alt("log02", sighting)
-    assert alt.specs["Guardian"]["log_counts"]["log01"] == 4
-    assert alt.specs["Feral"]["log_counts"]["log01"] == 3
-    assert alt.specs["Restoration"]["log_counts"]["log02"] == 6
+    sighting["specs"] = [{"spec": "heal_spec_1", "count": 1}]
+
+    guid = t.update_alt("log01", sighting)
+    assert guid == 1000
+    alt = t.alts[guid]
+
+    assert alt.specs["heal_spec_1"]["log_counts"]["log01"] == 1
+
+    sighting["role"] = "dps"
+    sighting["specs"] = [{"spec": "dps_spec_1", "count": 1}]
+
+    t.update_alt("log01", sighting)
+    assert alt.specs["heal_spec_1"]["log_counts"]["log01"] == 1
+    assert alt.specs["dps_spec_1"]["log_counts"]["log01"] == 1
 
 def test_update_alt_missing(valid_config, valid_log_times, valid_sighting):
     """ missing/non-list specs value doesn't alter existing specs
@@ -346,7 +312,7 @@ def test_update_alt_missing(valid_config, valid_log_times, valid_sighting):
     # missing spec field
     sighting.pop("specs")
     guid = t.update_alt("log01", sighting)
-    assert guid == 5001
+    assert guid == 3000
     alt = t.alts[guid]
     assert alt.specs == {}
 
@@ -358,17 +324,11 @@ def test_update_alt_missing(valid_config, valid_log_times, valid_sighting):
         assert alt.specs == {}
 
     # invalid specs
-    one_spec = [{}, 4, "Restoration", [], {"spec": "Restoration", "count": 5}]
+    one_spec = [{}, 4, "tank_spec", [], {"spec": "tank_spec", "count": 5}]
     sighting["specs"] = one_spec
     t.update_alt("log01", sighting)
-    assert alt.specs == {"Restoration": {"role": "healer", "log_counts": {"log01": 5}}}
+    assert alt.specs == {"tank_spec": {"role": "tank", "log_counts": {"log01": 5}}}
 
-    # invalid log_counts
-    # sighting["specs"] = [{ "Unholy": None }]
-    # sighting["specs"] = [{ "Unholy": {} }]
-
-    # invalid count
-    # sighting["specs"] = [{ "Unholy": {"log01": None} }]
 
 # transform_alts_friends
 # ======================
@@ -377,32 +337,31 @@ def test_transform_alts_friends_specs(valid_config):
     t = Transformer(valid_config)
 
     alt = Alt(1)
-    alt.name = "Guccigank"
-    alt.server = "Thrall"
+    alt.name = "Dps_2000"
+    alt.server = "Server"
     alt.specs = {
-        "Subtlety": {"role": "DPS", "log_counts": {"log1": 10}}
+        "dps_spec_1": {"role": "DPS", "log_counts": {"log1": 10}}
     }
     t.alts = {1: alt}
 
     t.transform_alts_friends()
 
-    assert "sightings" in alt.specs["Subtlety"]
-    assert alt.specs["Subtlety"]["sightings"] == 10
+    assert "sightings" in alt.specs["dps_spec_1"]
+    assert alt.specs["dps_spec_1"]["sightings"] == 10
 
 def test_transform_alts_friends_missing_main(valid_config):
-
     alt1 = Alt(1)
-    alt1.name = "Kickymcfisto"
-    alt1.server = "Area52"
+    alt1.name = "Notmain1_1000"
+    alt1.server = "Server"
     alt1.sightings = 10
 
     alt2 = Alt(2)
-    alt2.name = "Darkbark"
-    alt2.server = "Area52"
+    alt2.name = "Notmain2_1000"
+    alt2.server = "Server"
     alt2.sightings = 5
 
     config_dict = valid_config.model_dump()
-    config_dict["has_alts"] = { "Stiff-Area52": ["Darkbark-Area52", "Kickymcfisto-Area52"] }
+    config_dict["has_alts"] = { "Main_1000-Server": ["Notmain1_1000-Server", "Notmain2_1000-Server"] }
     alt_config = AppConfig.model_validate(config_dict)
 
     t = Transformer(alt_config)
@@ -413,5 +372,5 @@ def test_transform_alts_friends_missing_main(valid_config):
     assert len(t.friends) == 1
     friend = t.friends[0]
     assert friend.sightings == 15
-    assert friend.main.name == "Kickymcfisto"
+    assert friend.main.name == "Notmain1_1000"
     assert len(friend.alts) == 2

@@ -165,7 +165,9 @@ class Transformer:
                 # ensure alt info is represented in self.alts
                 guid = None
                 for player in player_data:
-                    guid = self.update_alt(pull.log, player)
+                    spec_guid = self.update_alt(pull.log, player)
+                    if not guid or not isinstance(guid, int):
+                        guid = spec_guid
                 if not guid or not guid in self.alts:
                     continue
 
