@@ -50,6 +50,7 @@ class Transformer:
 
         print("transform phase complete")
 
+
     def transform_fights_pulls(self):
         """ filter log times based on config schedule
             use filtered log codes to
@@ -87,12 +88,7 @@ class Transformer:
                 # difficulty filter
                 if fight["difficulty"] != 4:
                     continue
-                pull = Pull(code, fight["id"])
-                pull.kill = fight["kill"]
-                pull.boss["id"] = fight["encounterID"]
-                pull.boss["name"] = fight["name"]
-                pull.roster = fight["friendlyPlayers"]
-
+                pull = Pull.from_fight(code, fight)
                 self.pulls.append(pull)
 
     def filter_aotc_prog(self):
@@ -134,35 +130,42 @@ class Transformer:
             populate/update self.alts
 
             increment sightings for each alt confirmed
-
-            report - log_players:        { code: 
-            player_ids:                  { id: 
-            fights - alt_sightings:   [ 
-            sighting:                    {"guid", "role", "specs", ...
+            
+            input:
+            parsed_data {
+                # parsed_report
+                code: {  
+                    # player_id   
+                    id: [
+                        # player
+                        {"guid": int, "role": str, "specs": [], ...}
+                    ]
+                }
+            }
+            # list of pre-filtered Pull objects with player_id rosters
+            self.pulls
         """
-        # { log_code: { player_id: [ {spec_sighting}, {},  ] }
+        # { log_code: { player_id: [ {player}, {},  ] }
         players_json = load_players(self.config)
         parsed_data = parse_players(players_json)
 
         for pull in self.pulls:
-            log_data = parsed_data.get(pull.log, {})
-            
-            guid_roster = []        # create list of unique guids
-            id_roster = pull.roster # use list of log specific player ids
+            id_roster = pull.roster 
             if not isinstance(id_roster, list):
                 continue
-            # use player_ids to count alt sightings
+            guid_roster = []
+
+            parsed_report = parsed_data.get(pull.log, {})
             for player_id in id_roster:
                 # { code: { id: 
-                player_seen = log_data.get(player_id)
-                if not isinstance(player_seen, list):
+                player_data = parsed_report.get(player_id)
+                if not isinstance(player_data, list):
                     continue
 
                 # ensure alt info is represented in self.alts
                 guid = None
-                for spec_sighting in player_seen:
-                    # { "guid", "name", "role", "specs": [ {"spec", "count"} ], ... }
-                    guid = self.update_alt(pull.log, spec_sighting)
+                for player in player_data:
+                    guid = self.update_alt(pull.log, player)
                 if not guid or not guid in self.alts:
                     continue
 
@@ -174,57 +177,27 @@ class Transformer:
             # update pull roster to list of guids
             pull.roster = guid_roster
 
-    def update_alt(self, code: str, sighting: dict) -> int:
+    def update_alt(self, code: str, player: dict):
         """ Add new alt and/or spec info to self.alts
             return alt guid or None if inputs are invalid
             invalid spec info is skipped
             
-            sighting = {"guid", "name", ..., "role", "specs": [ {"spec", "count"} ]}
+            player = {"guid", "name", ..., "role", "specs": [ {"spec", "count"} ]}
         """
-        if not isinstance(sighting, dict) or code not in self.log_times:
+        if not isinstance(player, dict) or code not in self.log_times:
             return None
-        guid_seen = sighting.get("guid")
-        if not guid_seen: return None
+        
+        guid = player.get("guid")
+        if not guid: 
+            return None
 
         # ensure alt exists
-        if guid_seen not in self.alts:
-            alt_seen = Alt(guid_seen)
-            alt_seen.name = sighting.get("name")
-            alt_seen.server = sighting.get("server")
-            alt_seen.region = sighting.get("region")
-            alt_seen.type = sighting.get("type")
-            alt_seen.sightings = 0
-            alt_seen.specs = {}   # { spec: { "role": role, "counts": { code: count }
-            self.alts[guid_seen] = alt_seen
-        alt = self.alts[guid_seen]
+        if guid not in self.alts:
+            self.alts[guid] = Alt.from_player(guid, player)
 
-        # update existing alt spec info
-        specs_seen = sighting.get("specs", [])   # [ {"spec", "count"} ]
-        if not isinstance(specs_seen, list):
-            # guid still spotted and self.alts[guid] exists
-            specs_seen = [] 
-
-        for seen_spec in specs_seen:  # {"spec", "count"}
-            # skip missing/bad info for update, alt was still spotted
-            if not isinstance(seen_spec, dict) or "spec" not in seen_spec:
-                continue
-
-            spec_name = seen_spec.get("spec")
-            spec_count = seen_spec.get("count")
-            if not spec_count or not isinstance(spec_count, int):
-                continue
-
-            # ensure spec exists
-            if spec_name not in alt.specs:
-                role_seen = sighting.get("role")
-                role_name = ROLE_NAMES.get(role_seen, role_seen)
-                alt.specs[spec_name] = { "role": role_name, "log_counts": {}}
-            alt_spec = alt.specs[spec_name]   # { "role": role, "log_counts": { code: count }
-
-            # add count to log_counts (should always be the same)
-            if code not in alt_spec["log_counts"]:
-                alt_spec["log_counts"][code] = spec_count
-
+        alt = self.alts[guid]
+        # update spec counts
+        alt.update_specs(code, player)
         # verify alt exists in self.alts
         return alt.guid
 
