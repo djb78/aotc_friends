@@ -28,10 +28,10 @@ def test_parse_unique_codes_defensive(mock_codes_cache):
     codes = parse_unique_codes(mock_codes_cache)
     assert codes == ["code_1", "code_2"]
 
-def test_parse_unique_codes_empty():
+@pytest.mark.parametrize("empty", [{}, None, []])
+def test_parse_unique_codes_empty(empty):
     """ Test: empty/None inputs return an empty list """
-    assert parse_unique_codes({}) == []
-    assert parse_unique_codes(None) == []
+    assert parse_unique_codes(empty) == []
 
 # fights
 # ==============================================
@@ -49,12 +49,10 @@ def test_parse_fight_ids_success(mock_fights_cache):
         "code_2": [1]
     }
 
-def test_parse_fight_ids_empty():
+@pytest.mark.parametrize("empty", [{}, None, []])
+def test_parse_fight_ids_empty(empty):
     """ Test: empty dict returned in response to empty input """
-    empties = [{}, None, []]
-    for empty in empties:
-        fight_ids = parse_fight_ids(empty)
-        assert fight_ids == {}
+    assert parse_fight_ids(empty) == {}
 
 # parse_fights
 # ============
@@ -84,34 +82,40 @@ def test_parse_fights_success(mock_fights_cache):
         ]
     }
 
-def test_parse_fights_defensive(mock_fights_cache):
-    """ Test: skip missing/malformed fights_json elements """
-    missing_parents = [ # indicators of missing or corrupted input
-        None,                           # nothing
-        {},                             # no data
-        {"data": None},                 # no reportData
-        {"data": { "reportData": {} }}  # no reports
-    ]
+@pytest.mark.parametrize("bad_parent", [ # indicators of missing or corrupted input
+    None,                           # nothing
+    {},                             # no data
+    {"data": None},                 # no reportData
+    {"data": { "reportData": {} }}  # no reports
+])
+def test_parse_fights_bad_parent(bad_parent):
+    """ skip missing or corrupted top level """ 
+    with pytest.raises(ValueError) as e:
+        parse_fights(bad_parent)
+    assert "missing fight data" in str(e)
 
-    bad_reports = [
-        # {"code": "112", "fights": [{}]},  # currently adds to fight_logs
-        {"code": "112", "fights": []},
-        {"code": "112", "fights": "not_list"},
-        {"code": None},
-        {"not_code": "some_value"},
-        {},
-        None
-    ]
+@pytest.mark.parametrize("bad_report", [
+    # {"code": "112", "fights": [{}]},  # currently adds to fight_logs
+    {"code": "112", "fights": []},
+    {"code": "112", "fights": "not_list"},
+    {"code": None},
+    {"not_code": "some_value"},
+    {},
+    None
+])
+def test_parse_fights_bad_report(bad_report, mock_fights_cache):
+    """ Test: skip missing/malformed fights_json elements """
     # mixed good and bad reports, only output good
-    goodrpt = mock_fights_cache["data"]["reportData"]["alias_b"]
+    good_report = mock_fights_cache["data"]["reportData"]["alias_b"]
     fights_json = {"data": { "reportData": {
-        "goodrpt": goodrpt, 
+        "goodrpt": good_report, 
+        "badrpt": bad_report
     }}}
-    for badrpt in bad_reports:
-        fights_json["data"]["reportData"]["badrpt"] = badrpt
-        clean_dict = parse_fights(fights_json)
-        assert isinstance(clean_dict, dict)
-        assert len(clean_dict) == 1
+    
+    clean_dict = parse_fights(fights_json)
+    assert isinstance(clean_dict, dict)
+    assert len(clean_dict) == 1
+    assert "code_1" in clean_dict
 
 # players
 # ==============================================
@@ -149,3 +153,15 @@ def test_parse_players_success(mock_players_cache):
     assert player_reports["code_1"][1][0]["role"] == "healers"
     assert player_reports["code_1"][1][1]["role"] == "dps"
 
+@pytest.mark.parametrize("missing_sample", [
+    None,
+    {},
+    {"data": None},
+    {"data": {"reportData": {"ch0_r0": {"code": "no_details"}}}},
+    {"data": {"reportData": {"ch0_r0": {"code": "bad_details", "playerDetails": "no_dict"}}}}
+])
+def test_parse_players_defensive(missing_sample):
+    """ Test: handle missing/malformed players_json """
+    clean_dict = parse_players(missing_sample)
+    assert isinstance(clean_dict, dict)
+    assert len(clean_dict) == 0
