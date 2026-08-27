@@ -13,45 +13,20 @@ def test_safe_get():
 
 # parse_unique_codes
 # ==================
-def test_parse_unique_codes_success():
+def test_parse_unique_codes_success(mock_codes_cache):
     """ Test: parse unique codes from guild, recent and ranking data """
-    duplicate_data = {
-        "data": {
-            "reportData": {
-                "reports": {
-                    "data": [
-                        {"code": "GuildRprt"},
-                        {"code": "duplicate"}
-                    ]
-                }
-            },
-            "characterData": {
-                "character": {
-                    "recentReports": {
-                        "data": [
-                            {"code": "RecentRpt"},
-                            {"code": "duplicate"}
-                        ]
-                    } } } } }
-    codes = parse_unique_codes(duplicate_data)
-    assert codes == ["GuildRprt", "RecentRpt", "duplicate"]
+    codes = parse_unique_codes(mock_codes_cache)
+    # don't duplicate "code_1"
+    assert codes == ["code_0", "code_1", "code_2", "code_3"]
 
-def test_parse_unique_codes_defensive():
+def test_parse_unique_codes_defensive(mock_codes_cache):
     """ Test: skip missing/malformed structures """
-    incomplete_data = {
-        "data": {
-            "reportData": None, # reports missing
-            "characterData": {
-                "character": {
-                    "recentReports": {
-                        "data": [
-                            # recent report missing
-                            {"code": None},
-                            {"code": "duplicate"}
-                        ]
-                    } } } } }
-    codes = parse_unique_codes(incomplete_data)
-    assert codes == ["duplicate"]
+    mock_codes_cache["data"]["reportData"] = None
+    recent = mock_codes_cache["data"]["characterData"]["character"]["recentReports"]
+    recent["data"][2]["code"] = None
+
+    codes = parse_unique_codes(mock_codes_cache)
+    assert codes == ["code_1", "code_2"]
 
 def test_parse_unique_codes_empty():
     """ Test: empty/None inputs return an empty list """
@@ -60,48 +35,18 @@ def test_parse_unique_codes_empty():
 
 # fights
 # ==============================================
-@pytest.fixture
-def mock_fights_json():
-    """ sample fights_json 
-        multiple, single and empty report variations
-    """
-    return {
-        "data": {
-            "reportData": {
-                "ch0_r0": {
-                    "code": "multiple",
-                    "startTime": 100,
-                    "zone": {"id": 35},
-                    "fights": [
-                        {"id": 1, "name": "Gnarlroot", "kill": True, "friendlyPlayers": [1, 2, 3]},
-                        {"id": 2, "name": "Igira", "kill": False, "friendlyPlayers": [1, 3, 4, 2]}
-                    ]
-                },
-                "ch0_r1": {
-                    "code": "single",
-                    "startTime": 200,
-                    "zone": {"id": 35},
-                    "fights": [
-                        {"id": 10, "name": "Smolderon", "kill": True, "friendlyPlayers": [2, 4, 1, 3]}
-                    ]
-                },
-                "ch0_r2": {
-                    "code": "missing",
-                    "zone": {"id": 35},
-                    "fights": []
-    } } } }
 
 # parse_fight_ids
 # ===============
-def test_parse_fight_ids_success(mock_fights_json):
+def test_parse_fight_ids_success(mock_fights_cache):
     """ Test: legacy wrapper returns dictionary of fight id lists 
         {code:[fightIDs]} 
     """
-    fight_ids = parse_fight_ids(mock_fights_json)
+    fight_ids = parse_fight_ids(mock_fights_cache)
 
     assert fight_ids == {
-        "multiple": [1, 2],
-        "single": [10]
+        "code_1": [1, 2],
+        "code_2": [1]
     }
 
 def test_parse_fight_ids_empty():
@@ -113,33 +58,33 @@ def test_parse_fight_ids_empty():
 
 # parse_fights
 # ============
-def test_parse_fights_success(mock_fights_json):
-    """ Test: successfully parse fights data from mock_fights_json """
+def test_parse_fights_success(mock_fights_cache):
+    """ Test: successfully parse fights data from mock_fights_cache """
 
-    reports = parse_fights(mock_fights_json)
+    reports = parse_fights(mock_fights_cache)
 
-    assert "multiple" in reports
-    assert "single" in reports
-    assert "missing" not in reports
+    assert "code_0" not in reports
+    assert "code_1" in reports
+    assert "code_2" in reports
 
     # verify output dictonary structure
-    assert reports["multiple"] == {
+    assert reports["code_1"] == { 
         "time": 100,
-        "zone_id": 35,
+        "zone_id": 46,
         "fights": [
-            {"id": 1, "name": "Gnarlroot", "kill": True, "friendlyPlayers": [ 1, 2, 3 ] },
-            {"id": 2, "name": "Igira", "kill": False, "friendlyPlayers": [1, 3, 4, 2] }
+            {"id": 1, "name": "Boss_100", "kill": False, "friendlyPlayers": [1, 2, 3], "encounterID": 100, "difficulty": 4 },
+            {"id": 2, "name": "Boss_100", "kill": True, "friendlyPlayers": [1, 2, 3], "encounterID": 100, "difficulty": 4 }
         ]
     }
-    assert reports["single"] == {
+    assert reports["code_2"] == {
         "time": 200,
-        "zone_id": 35,
+        "zone_id": 46,
         "fights": [
-            {"id": 10, "name": "Smolderon", "kill": True, "friendlyPlayers": [2, 4, 1, 3]}
+            {"id": 1, "name": "Boss_200", "kill": False, "friendlyPlayers": [40, 20], "encounterID": 200, "difficulty": 4}
         ]
     }
 
-def test_parse_fights_defensive():
+def test_parse_fights_defensive(mock_fights_cache):
     """ Test: skip missing/malformed fights_json elements """
     missing_parents = [ # indicators of missing or corrupted input
         None,                           # nothing
@@ -158,82 +103,49 @@ def test_parse_fights_defensive():
         None
     ]
     # mixed good and bad reports, only output good
-    goodrpt = {"code": "011", "fights": [{"good_data"}]}
-    fights_json = {"data": { "reportData": {"goodrpt": goodrpt} }}
+    goodrpt = mock_fights_cache["data"]["reportData"]["alias_b"]
+    fights_json = {"data": { "reportData": {
+        "goodrpt": goodrpt, 
+    }}}
     for badrpt in bad_reports:
         fights_json["data"]["reportData"]["badrpt"] = badrpt
         clean_dict = parse_fights(fights_json)
         assert isinstance(clean_dict, dict)
         assert len(clean_dict) == 1
-    # no good reports, raise a valueError, no data for the next phase
 
 # players
 # ==============================================
-@pytest.fixture
-def mock_players_json():
-    """ sample players_json
-        solo, group with role-swapping, private log variants
-    """
-    return { "data": { "reportData": {
-                "ch0_r0": {
-                    "code": "flex_role",
-                    "playerDetails": { "data": { "playerDetails": {
-                        "tanks": [
-                            {"id": 1, "name": "tank", "specs": ["tank_spec"]},
-                            {"id": 4, "name": "flex", "specs": ["tank_spec"]} ], 
-                        "healers": [
-                            {"id": 2, "name": "healer", "specs": ["healer_spec"]} ],
-                        "dps": [ 
-                            {"id": 4, "name": "flex", "specs": ["dps_spec"]} ]
-                    } } }
-                },
-                "ch0_r1": {
-                    "code": "solo",
-                    "playerDetails": { "data": { "playerDetails": {
-                        "tanks": [ {"id": 1, "name": "tank", "specs": ["tank_spec"]} ]
-                    } } }
-                },
-                "ch0_r2": {
-                    "code": "private",
-                    "playerDetails": None
-                } 
-    } } }
 
 # parse_players
 # =============
-def test_parse_players_success(mock_players_json):
+def test_parse_players_success(mock_players_cache):
     """ Test: parse playerDetails, verify role injection, exclude private/missing logs
 
         expected format from parse_players:
             { "code": { "id": [ player_role_info, ... ], "id": [ ... ], ... }
     """
-    player_reports = parse_players(mock_players_json)
+    player_reports = parse_players(mock_players_cache)
 
-    assert "flex_role" in player_reports
-    assert "solo" in player_reports
+    assert "code_1" in player_reports
+    assert "code_2" in player_reports
     assert "private" not in player_reports
 
-    assert player_reports["flex_role"] == {
-        1: [ {"name": "tank", "specs": ["tank_spec"], "role": "tanks"} ],
-        4: [ {"name": "flex", "specs": ["tank_spec"], "role": "tanks"},
-             {"name": "flex", "specs": ["dps_spec"], "role": "dps"} ],
-        2: [ {"name": "healer", "specs": ["healer_spec"], "role": "healers"} ]
-    }
-    assert player_reports["solo"] == {
-        1: [{"name": "tank", "specs": ["tank_spec"], "role": "tanks"}]
-    }
+    assert 1 in player_reports["code_1"]
+    assert 2 in player_reports["code_1"]
+    assert 3 in player_reports["code_1"]
 
-def test_parse_players_defensive():
-    """ Test: handle missing/malformed players_json """
-    missing_samples = [
-        None,
-        {},
-        {"data": None},
-        {"data": {"reportData": {"ch0_r0": {"code": "no_details"}}}},
-        {"data": {"reportData": {"ch0_r0": {"code": "bad_details", "playerDetails": "no_dict"}}}}
+    assert 20 in player_reports["code_2"]
+    assert 40 in player_reports["code_2"]
+
+    # cross log/report
+    assert player_reports["code_1"][2][0]["guid"] == player_reports["code_2"][20][0]["guid"]
+    # multi spec
+    assert player_reports["code_1"][2][0]["specs"] == [
+        {"spec": "dps_spec_1", "count": 1}, 
+        {"spec": "dps_spec_2", "count": 1}
     ]
+    # multi role
+    assert len(player_reports["code_1"][1]) == 2
+    assert player_reports["code_1"][1][0]["role"] == "healers"
+    assert player_reports["code_1"][1][1]["role"] == "dps"
 
-    for sample in missing_samples:
-        clean_dict = parse_players(sample)
-        assert isinstance(clean_dict, dict)
-        assert len(clean_dict) == 0

@@ -129,6 +129,7 @@ def mock_codes_cache():
         } },
         "characterData": {
             "character": { "recentReports": { "data": [
+                    { "code": "code_1" },
                     { "code": "code_2" },
                     { "code": "code_3" } ]
         } } }
@@ -260,6 +261,10 @@ def mock_players_cache():
                             "icon": "class-spec",
                             "specs": [{ "spec": "dps_spec_1", "count": 1 }] }
                     ] 
-        } } } }
+        } } } },
+        "alias_c": {
+            "code": "private",
+            "playerDetails": None
+        }
     } } }
 
