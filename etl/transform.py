@@ -1,8 +1,11 @@
+import logging
 from services.file_io import load_fights, load_players
 from etl.parse import safe_get, parse_fights, parse_players
 from domain.constants import ROLE_NAMES
 from domain.models import Pull, Alt, Friend
 from domain.schema import AppConfig
+
+logger = logging.getLogger(__name__)
 
 class Transformer:
     def __init__(self, config: AppConfig):
@@ -13,42 +16,36 @@ class Transformer:
         self.friends = [] # [ Friends ]
 
     def transform_all(self):
-        """ coordinator for preping fights and characters for the load phase
-            filter raw list of codes for raid_day matches
-            exclude logs after the AOTC kill
-            populate pulls and characters dictionaries
-
-            parse_players() = { "code": [ {player_role_info} ] }
+        """ coordinator 
+            orchestrate transform phase components
+            - populate self.log_times and self.pulls
+            - filter log_times and pulls for aotc cutoff
+            - use pull participants to populate self.alts
+            - populate self.friends with groups of unique players alts
         """
-        print("starting transform phase")
+        logger.info("starting transform phase")
 
-        print("- getting scheduled logs and building pull list")
+        # apply initial filters while generating log and pull lists
+        logger.info("- applying raid, difficulty and schedule filters...")
         self.transform_fights_pulls()
-        print(f"    - logs:     {len(self.log_times)}")
-        print(f"    - pulls:    {len(self.pulls)}")
+        logger.info("  %d logs (%d pulls) match", len(self.log_times), len(self.pulls))
 
-        print("- removing logs after aotc kill cutoff")
+        # remove logs and pulls after cutoff
+        logger.info("- applying aotc kill cutoff filter...")
         self.filter_aotc_prog()
-        print(f"    - logs:     {len(self.log_times)}")
-        print(f"    - pulls:    {len(self.pulls)}")
-        if len(self.pulls) > 0:
-            pull = self.pulls[0]
-            print(f"    - sample roster: {pull.roster}")
+        logger.info("  %d logs (%d pulls) left", len(self.log_times), len(self.pulls))
 
-        print("- building alt dictionary")
+        # use pull rosters to generate alts list
+        logger.info("- building alt dictionary...")
         self.transform_pulls_alts()
-        print(f"    - logs:     {len(self.log_times)}")
-        print(f"    - pulls:    {len(self.pulls)}")
-        if len(self.pulls) > 0:
-            pull = self.pulls[0]
-            print(f"    - sample roster: {pull.roster}")
-        print(f"    - alts:  {len(self.alts)}")
+        logger.info("  %d characters contributed", len(self.alts))
 
-        print("- deriving friend stats")
+        # use alt config to group alts by player
+        logger.info("- combining alts")
         self.transform_alts_friends()
-        print(f"    - friends: {len(self.friends)}")
+        logger.info("  %d total players", len(self.friends))
 
-        print("transform phase complete")
+        logger.info("transform phase complete\n")
 
 
     def transform_fights_pulls(self):
