@@ -1,5 +1,6 @@
-import os
-import requests
+import os, requests, logging
+
+logger = logging.getLogger(__name__)
 
 class WCLClient:
     def __init__(self):
@@ -13,7 +14,7 @@ class WCLClient:
             raise ValueError("Please set WCL ClientID and Client Secret in .env")
 
     def fetch_token(self):
-        print("Fetching OAuth2 access token...")
+        logger.debug("Fetching OAuth2 access token...")
         response = requests.post(
             self.token_url,
             data={"grant_type": "client_credentials"},
@@ -39,6 +40,8 @@ class WCLClient:
         payload = { "query": query_str.strip() }
         if variables:
             payload["variables"] = variables
+
+        logger.debug("sending api query (length: %d chars)...", len(query_str))
 
         response = requests.post(self.api_url, json=payload, headers=headers)
         if response.status_code != 200:

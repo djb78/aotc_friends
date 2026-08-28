@@ -1,4 +1,4 @@
-import sys, logging, json
+import sys, logging, json, requests
 from dotenv import load_dotenv
 from services.file_io import load_config, save_output
 from services.client import WCLClient
@@ -42,6 +42,9 @@ def main():
             "cache file corrupted, delete cache and re-try."
             "error: %s", e
         )
+        sys.exit(1)
+    except requests.RequestException as e:
+        logger.critical("network error: connection to warcraftlogs failed. (%s)", e)
         sys.exit(1)
     except Exception as e:
         logger.critical("unexpected error: %s", e, exc_info=True)
