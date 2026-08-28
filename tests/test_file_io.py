@@ -53,7 +53,8 @@ def test_load_cache_corrupted(tmp_path, valid_config):
     with corrupted_file.open("w", encoding="utf-8") as f:
         f.write("{ invalid json: 123 }")
 
-    assert load_cache(config, "bad_cache") == {}
+    with pytest.raises(json.JSONDecodeError):
+        load_cache(config, "bad_cache")
 
 # output
 # ==========================================

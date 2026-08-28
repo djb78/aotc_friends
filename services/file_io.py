@@ -45,6 +45,7 @@ def save_cache(config: AppConfig, cache_name: str, api_response: dict):
     with cache_file.open("w", encoding="utf-8") as f:
         json.dump(api_response, f, indent=4)
 
+# save wrappers
 def save_fights(config: AppConfig, api_response: dict):
     """attempts to save api_response to FIGHTS_CACHE"""
     return save_cache(config, FIGHTS_CACHE, api_response)
@@ -57,20 +58,22 @@ def save_players(config: AppConfig, api_response: dict):
     """attempts to save api_response to PLAYERS_CACHE"""
     return save_cache(config, PLAYERS_CACHE, api_response)
 
+
 # load_cache
 def load_cache(config: AppConfig, cache_name: str)->dict:
-    """attempts to load cache_name, {} on fail"""
+    """ attempts to load cache_name, {} for no cache
+        let main handle exceptions
+    """
     cache_file = config.cache_path / f"{cache_name}.json"
     if not cache_file.exists():
-        return {}		
+        return {}
 
     with cache_file.open("r", encoding="utf-8") as f:
-        try:
-            return json.load(f)
-        except json.JSONDecodeError:
-            print(f"{cache_file} corrupted")
-            return {}
+        cache = json.load(f)
 
+    return cache
+
+# load wrappers
 def load_fights(config: AppConfig)->dict:
     """attempts to load FIGHTS_CACHE"""
     return load_cache(config, FIGHTS_CACHE)

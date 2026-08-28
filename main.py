@@ -1,4 +1,4 @@
-import sys, logging
+import sys, logging, json
 from dotenv import load_dotenv
 from services.file_io import load_config, save_output
 from services.client import WCLClient
@@ -36,6 +36,12 @@ def main():
         sys.exit(1)
     except ValueError as e:
         logger.critical("validation error: %s", e)
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        logger.critical(
+            "cache file corrupted, delete cache and re-try."
+            "error: %s", e
+        )
         sys.exit(1)
     except Exception as e:
         logger.critical("unexpected error: %s", e, exc_info=True)
