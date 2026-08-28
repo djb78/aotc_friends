@@ -1,7 +1,7 @@
 #!/bin/sh
 echo "running pytest..."
 pytest
-if [$? -ne 0]; then
+if [ $? -ne 0 ]; then
     echo "push aborted"
     exit 1
 fi
