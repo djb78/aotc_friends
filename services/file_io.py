@@ -1,4 +1,4 @@
-import json
+import json, logging
 from pathlib import Path
 from domain.schema import AppConfig
 
@@ -6,6 +6,8 @@ from domain.schema import AppConfig
 CODES_CACHE = "codes"
 FIGHTS_CACHE = "fights"
 PLAYERS_CACHE = "players"
+
+logger = logging.getLogger(__name__)
 
 # CONFIG
 # =======================================
@@ -32,7 +34,7 @@ def save_output(md: str, path="friends.md"):
         return
     with open(path, "w", encoding="utf-8") as f:
         f.write(md)
-    print(f"report successfully generated at {path}")
+    logger.info("  saved to %s", path)
 
 # CACHE
 # =======================================
@@ -44,6 +46,7 @@ def save_cache(config: AppConfig, cache_name: str, api_response: dict):
 
     with cache_file.open("w", encoding="utf-8") as f:
         json.dump(api_response, f, indent=4)
+    logger.info("  saved to %s", cache_file)
 
 # save wrappers
 def save_fights(config: AppConfig, api_response: dict):
