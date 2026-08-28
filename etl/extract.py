@@ -1,6 +1,11 @@
-from services.file_io import save_codes, load_codes, save_fights, load_fights, save_players, load_players
-from domain.schema import AppConfig, AltConfig
+import sys, logging
+from services.file_io import (
+    save_codes, save_fights, save_players,
+    load_codes, load_fights, load_players )
+from domain.schema import AppConfig
 from etl.parse import parse_unique_codes, parse_fight_ids, safe_get
+
+logger = logging.getLogger(__name__)
 
 class Extractor:
     def __init__(self, client, config: AppConfig):
@@ -19,14 +24,21 @@ class Extractor:
 
     def extract_all(self):
         """ coordinator for extraction pipeline """
-        print("starting extraction phase")
-        print(" extracting codes...")
+        logger.info("starting extraction phase")
+
+        # query warcraftlogs for raw code data
+        logger.info("- extracting codes...")
         self.extract_codes()
-        print(" extracting fight data...")
+
+        # use codes to query for raw fight data
+        logger.info("- extracting fight data...")
         self.extract_fights()
-        print(" extracting player data...")
+
+        # use fight ids to query for raw player data
+        logger.info("- extracting player data...")
         self.extract_players()
-        print("extraction phase complete")
+
+        logger.info("extraction phase complete\n")
 
     def extract_codes(self):
         """ uses config data to extract and cache report codes
@@ -43,7 +55,7 @@ class Extractor:
         """
         # check for existing cache
         if load_codes(self.config):
-            print(f"    cache exists, extraction aborted.")
+            logger.info("  cache exists, continue")
             return 
 
         # use config data to construct GraphQL query
@@ -69,7 +81,6 @@ class Extractor:
         # query API and cache response
         response = self.client.query(query)
         save_codes(self.config, response)
-        print(f"    extraction complete, saved to cache")
 
     def extract_fights(self):
         """ uses codes from extract_codes cache
@@ -94,23 +105,23 @@ class Extractor:
             friendlyPlayers
             difficulty
         """
-        # check for existing fight info cache
         if load_fights(self.config):
-            print(f"    cache exists, extraction aborted.")
+            logger.info("  cache exists, continue")
             return
 
-        # load the cache created by extract_codes
         codes_json = load_codes(self.config)
         if not codes_json:
+            logger.warning("  no valid codes cache, run extract_codes")
             return
+        
         # retrieve list of codes
         codes = parse_unique_codes(codes_json)
-        if not isinstance(codes, list):
-            return
         # chunk data to avoid complexity limits
         chunks = self.chunk_list(codes)
+
         # extract chunk responses
         chunk_responses = {}
+        print("     |   querying warcraftlogs: ", end="", file=sys.stderr, flush=True)
         for i, chunk in enumerate(chunks):
 
             # construct multi-aliased GraphQL query
@@ -129,11 +140,14 @@ class Extractor:
             chunk_reports = safe_get(chunk_response, ["data", "reportData"])
             if isinstance(chunk_reports, dict):
                 chunk_responses.update(chunk_reports)
+                print("+", end="", file=sys.stderr, flush=True)
+            else:
+                print("-", end="", file=sys.stderr, flush=True)
+        print(f" Done. ({len(chunk_responses)} logs)", file=sys.stderr)
 
         # cache merged chunk responses
         merged_response = {"data": {"reportData": chunk_responses}}
         save_fights(self.config, merged_response)
-        print(f"    extraction complete, saved to cache")
 
 
     def extract_players(self):
@@ -142,20 +156,21 @@ class Extractor:
 
             query format (multi-aliased, chunked):
                 query { reportData {
-                    ch0_r0: report(code: <code0>) {
+                    alias_a: report(code: <code0>) {
                         playerDetails(fightIDs=[<id1>, <id2>, ...])
                     },
-                    ch0_r1: report(code: <code1>) { ... }, ...
+                    alias_b: report(code: <code1>) { ... }, ...
                 }}
         """
         # check for existing cache
         if load_players(self.config):
-            print(f"    cache exists, extraction aborted.")
+            logger.info("  cache exists, continue")
             return
 
         # losd the cache created by extract_fights
         fights_json = load_fights(self.config)
         if not fights_json:
+            logger.warning("  no valid fights cache, run extract_fights")
             return 
         # retrieve codes and fight ids
         fight_ids = parse_fight_ids(fights_json)
@@ -167,6 +182,7 @@ class Extractor:
         
         # collect responses to chunk queryies
         chunk_responses = {}
+        print("     |   querying warcraftlogs: ", end="", file=sys.stderr, flush=True)
         for i, chunk in enumerate(chunks):
             # construct multi-aliased GraphQL query
             query = "query { reportData { "
@@ -184,8 +200,11 @@ class Extractor:
             chunk_reports = safe_get(chunk_response, ["data", "reportData"])
             if isinstance(chunk_reports, dict):
                 chunk_responses.update(chunk_reports)
+                print("+", end="", file=sys.stderr, flush=True)
+            else:
+                print("-", end="", file=sys.stderr, flush=True)
+        print(f" Done. ({len(chunk_responses)} unique logs)", file=sys.stderr)
 
         # cache merged chunk responses
         merged_response = {"data": {"reportData": chunk_responses}}
         save_players(self.config, merged_response)
-        print(f"    extraction complete, saved to cache")
