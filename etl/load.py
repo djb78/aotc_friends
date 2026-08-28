@@ -1,4 +1,7 @@
+import logging
 from domain.schema import AppConfig
+
+logger = logging.getLogger(__name__)
 
 class Loader:
     def __init__(self, config: AppConfig, friends: list):
@@ -8,10 +11,13 @@ class Loader:
 
     def load_output(self)->str:
         """ coordinator, prepare data and generate markdown """
+        logger.info("starting load phase")
         if not self.friends or not isinstance(self.friends, list):
             return "### no friends"
 
+        logger.info("- sorting friends...")
         sorted_friends = self.sort_friends()
+        logger.info("- generating markdown...")
         return self.to_markdown(sorted_friends)
 
 
